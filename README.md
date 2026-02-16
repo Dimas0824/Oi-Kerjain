@@ -17,15 +17,15 @@ Dokumentasi teknis developer ada di `oikerjain/README.md`.
 
 ### Beranda Tugas Aktif
 
-<img src="docs/gallery/home-screen.png" alt="Home Screen" width="860" />
+<img src="docs/gallery/home-screen.png" alt="Home Screen" width="480" />
 
 ### Tambah / Edit Tugas
 
-<img src="docs/gallery/edit-sheet.png" alt="Edit Task Sheet" width="860" />
+<img src="docs/gallery/edit-sheet.png" alt="Edit Task Sheet" width="480" />
 
 ### Riwayat + Filter Mingguan
 
-<img src="docs/gallery/history-screen.png" alt="History Screen" width="860" />
+<img src="docs/gallery/history-screen.png" alt="History Screen" width="480" />
 
 ## Fitur Pengguna
 
