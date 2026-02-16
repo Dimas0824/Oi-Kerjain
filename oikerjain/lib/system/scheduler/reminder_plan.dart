@@ -15,10 +15,7 @@ class ReminderPlanBuilder {
   final Duration _urgentWindow;
   final Duration _catchUpLead;
 
-  List<ReminderPlanEntry> build({
-    required Task task,
-    required DateTime now,
-  }) {
+  List<ReminderPlanEntry> build({required Task task, required DateTime now}) {
     final nowMillis = now.millisecondsSinceEpoch;
     if (task.isDone) {
       return const <ReminderPlanEntry>[];
@@ -29,7 +26,8 @@ class ReminderPlanBuilder {
       final snoozedUntil = task.snoozedUntilEpochMillis;
       return <ReminderPlanEntry>[
         ReminderPlanEntry(
-          scheduledAtEpochMillis: snoozedUntil != null && snoozedUntil > nowMillis
+          scheduledAtEpochMillis:
+              snoozedUntil != null && snoozedUntil > nowMillis
               ? snoozedUntil
               : nowMillis + _catchUpLead.inMilliseconds,
           isCloseDeadline: true,
@@ -68,17 +66,19 @@ class ReminderPlanBuilder {
     );
     if (_shouldAddCatchUpReminder(task: task, nowMillis: nowMillis)) {
       reminderEpochs.add(
-        math.min(
-          nowMillis + _catchUpLead.inMilliseconds,
-          dueAtEpochMillis,
-        ),
+        math.min(nowMillis + _catchUpLead.inMilliseconds, dueAtEpochMillis),
       );
     }
 
-    final sorted = reminderEpochs
-        .where((epoch) => epoch > nowMillis && epoch <= windowEndMillis)
-        .toList()
-      ..sort();
+    final sorted =
+        reminderEpochs
+            .where(
+              (epoch) =>
+                  epoch > nowMillis &&
+                  (epoch <= windowEndMillis || epoch == dueAtEpochMillis),
+            )
+            .toList()
+          ..sort();
 
     return sorted
         .map(
@@ -148,18 +148,13 @@ class ReminderPlanBuilder {
         );
   }
 
-  bool _shouldAddCatchUpReminder({
-    required Task task,
-    required int nowMillis,
-  }) {
+  bool _shouldAddCatchUpReminder({required Task task, required int nowMillis}) {
     final snoozedUntil = task.snoozedUntilEpochMillis;
     if (snoozedUntil != null && snoozedUntil > nowMillis) {
       return false;
     }
 
-    final remaining = Duration(
-      milliseconds: task.dueAtEpochMillis - nowMillis,
-    );
+    final remaining = Duration(milliseconds: task.dueAtEpochMillis - nowMillis);
     return remaining <= _urgentWindow;
   }
 

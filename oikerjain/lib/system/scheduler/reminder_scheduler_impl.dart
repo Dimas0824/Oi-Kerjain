@@ -9,7 +9,8 @@ class ReminderSchedulerImpl implements ReminderScheduler {
     this._notificationService, {
     ReminderPlanBuilder? reminderPlanBuilder,
     Clock? clock,
-  }) : _reminderPlanBuilder = reminderPlanBuilder ?? const ReminderPlanBuilder(),
+  }) : _reminderPlanBuilder =
+           reminderPlanBuilder ?? const ReminderPlanBuilder(),
        _clock = clock ?? const Clock();
 
   final LocalNotificationService _notificationService;

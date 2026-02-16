@@ -31,7 +31,11 @@ void main() {
 
     List<DateTime> toTimes(List<ReminderPlanEntry> entries) {
       return entries
-          .map((entry) => DateTime.fromMillisecondsSinceEpoch(entry.scheduledAtEpochMillis))
+          .map(
+            (entry) => DateTime.fromMillisecondsSinceEpoch(
+              entry.scheduledAtEpochMillis,
+            ),
+          )
           .toList();
     }
 
@@ -43,17 +47,15 @@ void main() {
       final plan = planner.build(task: task, now: now);
       final times = toTimes(plan);
 
-      expect(
-        times,
-        <DateTime>[
-          DateTime(2026, 2, 16, 9),
-          DateTime(2026, 2, 17, 9),
-          DateTime(2026, 2, 18, 9),
-        ],
-      );
+      expect(times, <DateTime>[
+        DateTime(2026, 2, 16, 9),
+        DateTime(2026, 2, 17, 9),
+        DateTime(2026, 2, 18, 9),
+        DateTime(2026, 2, 24, 9),
+      ]);
     });
 
-    test('uses 12-hour cadence when deadline is within 3 days', () {
+    test('uses 12-hour cadence then escalates to hourly within 1 day', () {
       final task = buildTask(
         dueAtEpochMillis: DateTime(2026, 2, 17, 21).millisecondsSinceEpoch,
       );
@@ -61,16 +63,14 @@ void main() {
       final plan = planner.build(task: task, now: now);
       final times = toTimes(plan);
 
-      expect(
-        times,
-        <DateTime>[
-          DateTime(2026, 2, 15, 21),
-          DateTime(2026, 2, 16, 9),
-          DateTime(2026, 2, 16, 21),
-          DateTime(2026, 2, 17, 9),
-          DateTime(2026, 2, 17, 21),
-        ],
-      );
+      expect(times.take(3), <DateTime>[
+        DateTime(2026, 2, 15, 21),
+        DateTime(2026, 2, 16, 9),
+        DateTime(2026, 2, 16, 21),
+      ]);
+      expect(times[3], DateTime(2026, 2, 16, 22));
+      expect(times.last, DateTime(2026, 2, 17, 21));
+      expect(times, contains(DateTime(2026, 2, 17, 9)));
     });
 
     test('uses hourly cadence when deadline is on the same day', () {
@@ -81,15 +81,12 @@ void main() {
       final plan = planner.build(task: task, now: now);
       final times = toTimes(plan);
 
-      expect(
-        times,
-        <DateTime>[
-          DateTime(2026, 2, 15, 10),
-          DateTime(2026, 2, 15, 11),
-          DateTime(2026, 2, 15, 12),
-          DateTime(2026, 2, 15, 13),
-        ],
-      );
+      expect(times, <DateTime>[
+        DateTime(2026, 2, 15, 10),
+        DateTime(2026, 2, 15, 11),
+        DateTime(2026, 2, 15, 12),
+        DateTime(2026, 2, 15, 13),
+      ]);
       expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
     });
 
@@ -101,13 +98,10 @@ void main() {
       final plan = planner.build(task: task, now: now);
       final times = toTimes(plan);
 
-      expect(
-        times,
-        <DateTime>[
-          DateTime(2026, 2, 15, 9, 1),
-          DateTime(2026, 2, 15, 9, 30),
-        ],
-      );
+      expect(times, <DateTime>[
+        DateTime(2026, 2, 15, 9, 1),
+        DateTime(2026, 2, 15, 9, 30),
+      ]);
       expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
     });
 
@@ -126,7 +120,13 @@ void main() {
     test('respects snooze when overdue task has future snoozed-until', () {
       final task = buildTask(
         dueAtEpochMillis: DateTime(2026, 2, 15, 8, 30).millisecondsSinceEpoch,
-        snoozedUntilEpochMillis: DateTime(2026, 2, 15, 9, 15).millisecondsSinceEpoch,
+        snoozedUntilEpochMillis: DateTime(
+          2026,
+          2,
+          15,
+          9,
+          15,
+        ).millisecondsSinceEpoch,
       );
 
       final plan = planner.build(task: task, now: now);
@@ -136,19 +136,22 @@ void main() {
       expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
     });
 
-    test('uses hourly cadence when deadline is within 1 day across local-day boundary', () {
-      final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 16, 0).millisecondsSinceEpoch,
-      );
+    test(
+      'uses hourly cadence when deadline is within 1 day across local-day boundary',
+      () {
+        final task = buildTask(
+          dueAtEpochMillis: DateTime(2026, 2, 16, 0).millisecondsSinceEpoch,
+        );
 
-      final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
+        final plan = planner.build(task: task, now: now);
+        final times = toTimes(plan);
 
-      expect(times.first, DateTime(2026, 2, 15, 10));
-      expect(times.last, DateTime(2026, 2, 16, 0));
-      expect(times.length, 15);
-      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
-    });
+        expect(times.first, DateTime(2026, 2, 15, 10));
+        expect(times.last, DateTime(2026, 2, 16, 0));
+        expect(times.length, 15);
+        expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+      },
+    );
 
     test('limits reminders to 72-hour rolling window', () {
       final task = buildTask(
@@ -158,30 +161,47 @@ void main() {
       final plan = planner.build(task: task, now: now);
       final times = toTimes(plan);
 
-      expect(times.last, DateTime(2026, 2, 18, 9));
+      expect(times.last, DateTime(2026, 2, 25, 9));
       expect(
-        times.every((item) => item.isBefore(DateTime(2026, 2, 18, 9, 0, 1))),
+        times
+            .where((item) => item != DateTime(2026, 2, 25, 9))
+            .every((item) => item.isBefore(DateTime(2026, 2, 18, 9, 0, 1))),
         isTrue,
       );
     });
 
-    test('applies snooze window and removes collided reminders', () {
+    test('always keeps exact deadline reminder even beyond rolling window', () {
       final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 15, 15).millisecondsSinceEpoch,
-        snoozedUntilEpochMillis: DateTime(2026, 2, 15, 13).millisecondsSinceEpoch,
+        dueAtEpochMillis: DateTime(2026, 2, 25, 9).millisecondsSinceEpoch,
       );
 
       final plan = planner.build(task: task, now: now);
       final times = toTimes(plan);
 
-      expect(
-        times,
-        <DateTime>[
-          DateTime(2026, 2, 15, 13),
-          DateTime(2026, 2, 15, 14),
-          DateTime(2026, 2, 15, 15),
-        ],
+      expect(times, contains(DateTime(2026, 2, 25, 9)));
+      expect(times.first, DateTime(2026, 2, 16, 9));
+      expect(times.last, DateTime(2026, 2, 25, 9));
+    });
+
+    test('applies snooze window and removes collided reminders', () {
+      final task = buildTask(
+        dueAtEpochMillis: DateTime(2026, 2, 15, 15).millisecondsSinceEpoch,
+        snoozedUntilEpochMillis: DateTime(
+          2026,
+          2,
+          15,
+          13,
+        ).millisecondsSinceEpoch,
       );
+
+      final plan = planner.build(task: task, now: now);
+      final times = toTimes(plan);
+
+      expect(times, <DateTime>[
+        DateTime(2026, 2, 15, 13),
+        DateTime(2026, 2, 15, 14),
+        DateTime(2026, 2, 15, 15),
+      ]);
     });
   });
 }

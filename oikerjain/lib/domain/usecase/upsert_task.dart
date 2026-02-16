@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../../model/task.dart';
 import '../scheduler/reminder_scheduler.dart';
 import '../task_repository.dart';
@@ -16,6 +18,13 @@ class UpsertTaskUseCase {
         return;
       }
       await _scheduler.schedule(task);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to schedule notification after upsert for task ${task.id}',
+        name: 'oikerjain.scheduler',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -22,7 +24,8 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin;
   final NotificationFactory _notificationFactory;
   NotificationActionCallback? _actionCallback;
-  AndroidScheduleMode _androidScheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
+  AndroidScheduleMode _androidScheduleMode =
+      AndroidScheduleMode.inexactAllowWhileIdle;
 
   Future<void> init({required NotificationActionCallback onAction}) async {
     _actionCallback = onAction;
@@ -268,7 +271,13 @@ class LocalNotificationService {
     try {
       final timezoneName = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(timezoneName));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to configure local timezone, fallback to UTC',
+        name: 'oikerjain.notifications',
+        error: error,
+        stackTrace: stackTrace,
+      );
       tz.setLocalLocation(tz.getLocation('UTC'));
     }
   }
