@@ -129,10 +129,11 @@ void main() {
       final activeAfterDone = await repository.getTasks();
       final historyAfterDone = await repository.getHistoryTasks();
 
-      expect(activeAfterDone, isEmpty);
-      expect(historyAfterDone.single.isDone, isTrue);
+      expect(activeAfterDone.single.id, 'task-x');
+      expect(activeAfterDone.single.isDone, isTrue);
+      expect(historyAfterDone, isEmpty);
       expect(
-        historyAfterDone.single.completedAtEpochMillis,
+        activeAfterDone.single.completedAtEpochMillis,
         clock.now().millisecondsSinceEpoch,
       );
 
@@ -142,6 +143,78 @@ void main() {
       expect(activeAfterUndo.single.isDone, isFalse);
       expect(activeAfterUndo.single.completedAtEpochMillis, isNull);
     });
+
+    test(
+      'classifies done task by local-day boundary for active vs history',
+      () async {
+        final now = clock.now();
+        final todayStart = DateTime(now.year, now.month, now.day);
+        final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+        final beforeTodayStart = todayStart.subtract(const Duration(milliseconds: 1));
+
+        final store = InMemoryTaskStore(
+          clock: clock,
+          seedTasks: <Task>[
+            Task(
+              id: 'done-at-start',
+              title: 'Done At Start',
+              createdAtEpochMillis:
+                  now.subtract(const Duration(days: 2)).millisecondsSinceEpoch,
+              dueAtEpochMillis:
+                  now.subtract(const Duration(days: 2)).millisecondsSinceEpoch,
+              repeatRule: RepeatRule.none,
+              priority: TaskPriority.high,
+              category: TaskCategory.work,
+              isDone: true,
+              completedAtEpochMillis: todayStart.millisecondsSinceEpoch,
+              updatedAtEpochMillis: todayStart.millisecondsSinceEpoch,
+            ),
+            Task(
+              id: 'done-at-end',
+              title: 'Done At End',
+              createdAtEpochMillis:
+                  now.subtract(const Duration(days: 2)).millisecondsSinceEpoch,
+              dueAtEpochMillis:
+                  now.subtract(const Duration(days: 2)).millisecondsSinceEpoch,
+              repeatRule: RepeatRule.none,
+              priority: TaskPriority.high,
+              category: TaskCategory.work,
+              isDone: true,
+              completedAtEpochMillis: todayEnd.millisecondsSinceEpoch,
+              updatedAtEpochMillis: todayEnd.millisecondsSinceEpoch,
+            ),
+            Task(
+              id: 'done-before-start',
+              title: 'Done Before Start',
+              createdAtEpochMillis:
+                  now.subtract(const Duration(days: 3)).millisecondsSinceEpoch,
+              dueAtEpochMillis:
+                  now.subtract(const Duration(days: 3)).millisecondsSinceEpoch,
+              repeatRule: RepeatRule.none,
+              priority: TaskPriority.medium,
+              category: TaskCategory.work,
+              isDone: true,
+              completedAtEpochMillis: beforeTodayStart.millisecondsSinceEpoch,
+              updatedAtEpochMillis: beforeTodayStart.millisecondsSinceEpoch,
+            ),
+          ],
+        );
+        final repository = TaskRepositoryImpl(store, clock: clock);
+
+        final active = await repository.getTasks();
+        final history = await repository.getHistoryTasks();
+
+        expect(
+          active.map((task) => task.id),
+          containsAll(<String>['done-at-start', 'done-at-end']),
+        );
+        expect(
+          active.map((task) => task.id),
+          isNot(contains('done-before-start')),
+        );
+        expect(history.map((task) => task.id), <String>['done-before-start']);
+      },
+    );
 
     test('snoozeTask shifts dueAt by 10 minutes', () async {
       final baseDueAt = DateTime(2026, 2, 15, 10).millisecondsSinceEpoch;

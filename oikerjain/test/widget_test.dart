@@ -114,7 +114,7 @@ void main() {
     expect(find.byKey(const Key('task-card-task-search-1')), findsNothing);
   });
 
-  testWidgets('tap active task toggles done and moves it to history tab', (
+  testWidgets('tap active task toggles done and keeps it on active tab for today', (
     tester,
   ) async {
     final seededTask = buildTask(
@@ -130,12 +130,13 @@ void main() {
     await tester.tap(find.byKey(const Key('task-card-task-1')));
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byKey(const Key('task-card-task-1')), findsNothing);
+    expect(find.byKey(const Key('task-card-task-1')), findsOneWidget);
+    expect(find.byKey(const Key('completed-today-section')), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('nav-history-tab')));
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byKey(const Key('history-task-card-task-1')), findsOneWidget);
+    expect(find.byKey(const Key('history-task-card-task-1')), findsNothing);
   });
 
   testWidgets('add flow from active tab bottom sheet creates task', (tester) async {
@@ -274,7 +275,7 @@ void main() {
     expect(find.byKey(const Key('history-task-card-history-b')), findsNothing);
   });
 
-  testWidgets('tap history task undoes completion and returns it to active tab', (
+  testWidgets('tap history task opens task detail sheet and does not restore', (
     tester,
   ) async {
     final seededTask = buildTask(
@@ -292,6 +293,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     await tester.tap(find.byKey(const Key('history-task-card-history-undo')));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const Key('task-title-input')), findsOneWidget);
+    await tester.pageBack();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const Key('history-task-card-history-undo')), findsOneWidget);
+  });
+
+  testWidgets('history restore button undoes completion and returns it to active tab', (
+    tester,
+  ) async {
+    final seededTask = buildTask(
+      id: 'history-undo',
+      title: 'Undo Me',
+      dueAt: DateTime(2026, 2, 14, 12),
+      createdAt: DateTime(2026, 2, 10, 9),
+      isDone: true,
+      completedAt: DateTime(2026, 2, 14, 18),
+    );
+
+    await pumpHome(tester, seedTasks: <Task>[seededTask]);
+
+    await tester.tap(find.byKey(const Key('nav-history-tab')));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    await tester.tap(find.byKey(const Key('history-task-restore-history-undo')));
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byKey(const Key('history-task-card-history-undo')), findsNothing);

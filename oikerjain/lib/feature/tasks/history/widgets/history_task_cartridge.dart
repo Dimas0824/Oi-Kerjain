@@ -10,10 +10,12 @@ class HistoryTaskCartridge extends StatelessWidget {
   const HistoryTaskCartridge({
     super.key,
     required this.task,
+    required this.onTap,
     required this.onUndo,
   });
 
   final Task task;
+  final VoidCallback onTap;
   final VoidCallback onUndo;
 
   @override
@@ -26,46 +28,51 @@ class HistoryTaskCartridge extends StatelessWidget {
     return NeuSurface(
       key: Key('history-task-card-${task.id}'),
       radius: 16,
-      onTap: onUndo,
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       child: Row(
         children: <Widget>[
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  task.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: UITypography.bodyStrong.copyWith(
-                    decoration: TextDecoration.lineThrough,
-                    decorationThickness: 2,
-                  ),
-                ),
-                if (task.description.trim().isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 4),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
                   Text(
-                    task.description.trim(),
+                    task.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: UITypography.captionStrong,
+                    style: UITypography.bodyStrong.copyWith(
+                      decoration: TextDecoration.lineThrough,
+                      decorationThickness: 2,
+                    ),
+                  ),
+                  if (task.description.trim().isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      task.description.trim(),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: UITypography.captionStrong,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Selesai: $completedLabel',
+                    style: UITypography.captionStrong.copyWith(
+                      color: UIPalette.textMuted,
+                    ),
                   ),
                 ],
-                const SizedBox(height: 8),
-                Text(
-                  'Selesai: $completedLabel',
-                  style: UITypography.captionStrong.copyWith(
-                    color: UIPalette.textMuted,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 10),
           NeuSurface(
+            key: Key('history-task-restore-${task.id}'),
             pressed: true,
             radius: 10,
+            onTap: onUndo,
             padding: const EdgeInsets.all(8),
             child: const Icon(
               Icons.undo_rounded,

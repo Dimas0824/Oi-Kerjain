@@ -36,10 +36,12 @@ void main() {
       final useCase = MarkDoneUseCase(repository, _ThrowingScheduler());
 
       await useCase(sourceTask, isDone: true);
-      final tasks = await repository.getHistoryTasks();
+      final tasks = await repository.getTasks();
+      final history = await repository.getHistoryTasks();
 
       expect(tasks.single.isDone, isTrue);
       expect(tasks.single.completedAtEpochMillis, isNotNull);
+      expect(history, isEmpty);
     });
   });
 }

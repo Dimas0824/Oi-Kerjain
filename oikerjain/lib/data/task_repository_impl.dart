@@ -15,7 +15,10 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<List<Task>> getTasks() async {
     final tasks = await _loadAndCleanup();
-    final active = tasks.where((task) => !task.isDone).toList()
+    final todayBoundary = _resolveTodayBoundary();
+    final active = tasks
+        .where((task) => _isTaskForActiveHome(task, todayBoundary))
+        .toList()
       ..sort(_sortTask);
     return active;
   }
@@ -23,9 +26,10 @@ class TaskRepositoryImpl implements TaskRepository {
   @override
   Future<List<Task>> getHistoryTasks({DateTime? start, DateTime? end}) async {
     final tasks = await _loadAndCleanup();
+    final todayBoundary = _resolveTodayBoundary();
 
     final history = tasks
-        .where((task) => task.isDone && task.completedAtEpochMillis != null)
+        .where((task) => _isHistoryTask(task, todayBoundary))
         .where((task) => _isWithinCreatedRange(task, start: start, end: end))
         .toList()
       ..sort(_sortHistoryTask);
@@ -146,6 +150,51 @@ class TaskRepositoryImpl implements TaskRepository {
     return true;
   }
 
+  _TodayBoundary _resolveTodayBoundary() {
+    final now = _clock.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59, 999);
+    return _TodayBoundary(
+      todayStartEpochMillis: todayStart.millisecondsSinceEpoch,
+      todayEndEpochMillis: todayEnd.millisecondsSinceEpoch,
+    );
+  }
+
+  bool _isTaskForActiveHome(Task task, _TodayBoundary todayBoundary) {
+    if (!task.isDone) {
+      return true;
+    }
+
+    final completedAt = task.completedAtEpochMillis;
+    if (completedAt == null) {
+      return true;
+    }
+
+    if (_isCompletedToday(completedAt, todayBoundary)) {
+      return true;
+    }
+
+    return completedAt > todayBoundary.todayEndEpochMillis;
+  }
+
+  bool _isHistoryTask(Task task, _TodayBoundary todayBoundary) {
+    if (!task.isDone) {
+      return false;
+    }
+
+    final completedAt = task.completedAtEpochMillis;
+    if (completedAt == null) {
+      return false;
+    }
+
+    return completedAt < todayBoundary.todayStartEpochMillis;
+  }
+
+  bool _isCompletedToday(int completedAt, _TodayBoundary todayBoundary) {
+    return completedAt >= todayBoundary.todayStartEpochMillis &&
+        completedAt <= todayBoundary.todayEndEpochMillis;
+  }
+
   int _sortTask(Task a, Task b) {
     final priorityCompare = b.priority.rank.compareTo(a.priority.rank);
     if (priorityCompare != 0) {
@@ -174,4 +223,14 @@ class TaskRepositoryImpl implements TaskRepository {
 
     return b.updatedAtEpochMillis.compareTo(a.updatedAtEpochMillis);
   }
+}
+
+class _TodayBoundary {
+  const _TodayBoundary({
+    required this.todayStartEpochMillis,
+    required this.todayEndEpochMillis,
+  });
+
+  final int todayStartEpochMillis;
+  final int todayEndEpochMillis;
 }

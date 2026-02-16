@@ -11,6 +11,7 @@ class HistoryGroupSection extends StatelessWidget {
     super.key,
     required this.createdDate,
     required this.tasks,
+    required this.onOpen,
     required this.onUndo,
     required this.onEdit,
     required this.onDelete,
@@ -18,6 +19,7 @@ class HistoryGroupSection extends StatelessWidget {
 
   final DateTime createdDate;
   final List<Task> tasks;
+  final Future<void> Function(Task task) onOpen;
   final ValueChanged<String> onUndo;
   final Future<void> Function(Task task) onEdit;
   final Future<void> Function(Task task) onDelete;
@@ -68,6 +70,7 @@ class HistoryGroupSection extends StatelessWidget {
               ),
               child: HistoryTaskCartridge(
                 task: task,
+                onTap: () => onOpen(task),
                 onUndo: () => onUndo(task.id),
               ),
             ),

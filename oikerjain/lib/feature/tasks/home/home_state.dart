@@ -64,19 +64,40 @@ class HomeState {
       if (task.isDone) {
         return false;
       }
-      final categoryMatch =
-          selectedCategory == null || task.category == selectedCategory;
-      final textMatch =
-          query.isEmpty ||
-          task.title.toLowerCase().contains(query) ||
-          task.description.toLowerCase().contains(query);
-      return categoryMatch && textMatch;
+      return _matchesFilters(task, selectedCategory: selectedCategory, query: query);
     }).toList();
 
-    final pending = filtered.where((task) => !task.isDone).toList()
-      ..sort(_sortPendingTask);
+    filtered.sort(_sortPendingTask);
+    return filtered;
+  }
 
-    return pending;
+  List<Task> visibleCompletedTodayTasks() {
+    final selectedCategory = filterCategory.category;
+    final query = searchQuery.trim().toLowerCase();
+
+    final completed = tasks.where((task) {
+      if (!task.isDone) {
+        return false;
+      }
+      return _matchesFilters(task, selectedCategory: selectedCategory, query: query);
+    }).toList()
+      ..sort(_sortCompletedTodayTask);
+
+    return completed;
+  }
+
+  bool _matchesFilters(
+    Task task, {
+    required TaskCategory? selectedCategory,
+    required String query,
+  }) {
+    final categoryMatch =
+        selectedCategory == null || task.category == selectedCategory;
+    final textMatch =
+        query.isEmpty ||
+        task.title.toLowerCase().contains(query) ||
+        task.description.toLowerCase().contains(query);
+    return categoryMatch && textMatch;
   }
 
   int _sortPendingTask(Task a, Task b) {
@@ -88,6 +109,16 @@ class HomeState {
     final dueCompare = a.dueAtEpochMillis.compareTo(b.dueAtEpochMillis);
     if (dueCompare != 0) {
       return dueCompare;
+    }
+
+    return b.updatedAtEpochMillis.compareTo(a.updatedAtEpochMillis);
+  }
+
+  int _sortCompletedTodayTask(Task a, Task b) {
+    final completedCompare =
+        (b.completedAtEpochMillis ?? 0).compareTo(a.completedAtEpochMillis ?? 0);
+    if (completedCompare != 0) {
+      return completedCompare;
     }
 
     return b.updatedAtEpochMillis.compareTo(a.updatedAtEpochMillis);

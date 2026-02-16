@@ -107,7 +107,7 @@ void main() {
       );
     });
 
-    test('toggleStatus marks task done and removes it from active list', () async {
+    test('toggleStatus marks task done and keeps it in home state for today', () async {
       final controller = createController();
       addTearDown(controller.dispose);
 
@@ -116,7 +116,21 @@ void main() {
 
       expect(
         controller.state.tasks.map((task) => task.id),
+        contains('work-high'),
+      );
+      expect(
+        controller.state.tasks
+            .firstWhere((task) => task.id == 'work-high')
+            .isDone,
+        isTrue,
+      );
+      expect(
+        controller.state.visibleTasks().map((task) => task.id),
         isNot(contains('work-high')),
+      );
+      expect(
+        controller.state.visibleCompletedTodayTasks().map((task) => task.id),
+        contains('work-high'),
       );
     });
 
@@ -208,6 +222,76 @@ void main() {
       expect(
         controller.state.visibleTasks().map((task) => task.id).toList(),
         <String>['pending-high-near', 'pending-low'],
+      );
+      expect(
+        controller.state.visibleCompletedTodayTasks().map((task) => task.id).toList(),
+        <String>['done-recent'],
+      );
+    });
+
+    test('visibleCompletedTodayTasks follows category and search filters', () async {
+      final now = clock.now();
+      final tasks = <Task>[
+        Task(
+          id: 'done-work',
+          title: 'Deploy Service',
+          createdAtEpochMillis: now.millisecondsSinceEpoch,
+          dueAtEpochMillis: now.millisecondsSinceEpoch,
+          repeatRule: RepeatRule.none,
+          priority: TaskPriority.medium,
+          category: TaskCategory.work,
+          isDone: true,
+          completedAtEpochMillis:
+              now.subtract(const Duration(hours: 2)).millisecondsSinceEpoch,
+          updatedAtEpochMillis:
+              now.subtract(const Duration(hours: 2)).millisecondsSinceEpoch,
+        ),
+        Task(
+          id: 'done-personal',
+          title: 'Car Wash',
+          createdAtEpochMillis: now.millisecondsSinceEpoch,
+          dueAtEpochMillis: now.millisecondsSinceEpoch,
+          repeatRule: RepeatRule.none,
+          priority: TaskPriority.low,
+          category: TaskCategory.personal,
+          isDone: true,
+          completedAtEpochMillis:
+              now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+          updatedAtEpochMillis:
+              now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+        ),
+      ];
+
+      final repository = TaskRepositoryImpl(
+        InMemoryTaskStore(clock: clock, seedTasks: tasks),
+        clock: clock,
+      );
+
+      final controller = HomeController(
+        getTasks: GetTasksUseCase(repository),
+        markDone: MarkDoneUseCase(repository, FakeReminderScheduler()),
+        deleteTask: DeleteTaskUseCase(repository, FakeReminderScheduler()),
+        clock: clock,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.refresh();
+      expect(
+        controller.state.visibleCompletedTodayTasks().map((task) => task.id).toList(),
+        <String>['done-personal', 'done-work'],
+      );
+
+      controller.setCategoryFilter(TaskCategoryFilter.work);
+      expect(
+        controller.state.visibleCompletedTodayTasks().map((task) => task.id).toList(),
+        <String>['done-work'],
+      );
+
+      controller.setCategoryFilter(TaskCategoryFilter.all);
+      controller.setSearchQuery('car');
+      expect(
+        controller.state.visibleCompletedTodayTasks().map((task) => task.id).toList(),
+        <String>['done-personal'],
       );
     });
   });

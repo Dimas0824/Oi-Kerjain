@@ -155,6 +155,9 @@ class HistoryPage extends ConsumerWidget {
                                 return HistoryGroupSection(
                                   createdDate: group.createdDate,
                                   tasks: group.tasks,
+                                  onOpen: (task) async {
+                                    await onOpenTaskSheet(task: task);
+                                  },
                                   onUndo: controller.undoDone,
                                   onEdit: (task) async {
                                     await onOpenTaskSheet(task: task);

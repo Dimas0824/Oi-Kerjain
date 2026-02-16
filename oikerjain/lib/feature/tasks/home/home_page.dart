@@ -140,14 +140,82 @@ class _ActiveTasksTab extends ConsumerWidget {
     final state = ref.watch(homeControllerProvider);
     final controller = ref.read(homeControllerProvider.notifier);
     final now = ref.watch(clockProvider).now();
-    final visibleTasks = state.visibleTasks();
-    final scheduleSignature = visibleTasks
+    final pendingTasks = state.visibleTasks();
+    final completedTodayTasks = state.visibleCompletedTodayTasks();
+    final hasVisibleTasks =
+        pendingTasks.isNotEmpty || completedTodayTasks.isNotEmpty;
+    final scheduleSignature = <Task>[...pendingTasks, ...completedTodayTasks]
         .map(
           (task) =>
-              '${task.id}:${task.dueAtEpochMillis}:${task.updatedAtEpochMillis}:${task.isDone ? 1 : 0}',
+              '${task.id}:${task.dueAtEpochMillis}:${task.updatedAtEpochMillis}:${task.completedAtEpochMillis ?? 0}:${task.isDone ? 1 : 0}',
         )
         .join('|');
     final criticalTask = state.criticalTask();
+
+    Widget buildTaskItem(Task task) {
+      return Dismissible(
+        key: Key('task-dismiss-${task.id}'),
+        direction: DismissDirection.horizontal,
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.startToEnd) {
+            await onOpenTaskSheet(task: task);
+            return false;
+          }
+
+          final shouldDelete = await showDialog<bool>(
+            context: context,
+            barrierColor: Colors.black.withValues(alpha: 0.25),
+            builder: (_) {
+              return DeleteTaskDialog(taskTitle: task.title);
+            },
+          );
+
+          if (shouldDelete == true) {
+            await controller.deleteTask(task.id);
+          }
+          return false;
+        },
+        background: const SwipeBackground(
+          icon: Icons.edit_rounded,
+          alignment: Alignment.centerLeft,
+          color: Colors.blueGrey,
+          label: 'Ubah',
+        ),
+        secondaryBackground: const SwipeBackground(
+          icon: Icons.delete_rounded,
+          alignment: Alignment.centerRight,
+          color: Colors.redAccent,
+          label: 'Hapus',
+        ),
+        child: TaskCartridge(
+          task: task,
+          isOverdue: controller.isOverdue(task),
+          onToggle: () => controller.toggleStatus(task.id),
+        ),
+      );
+    }
+
+    final taskListChildren = <Widget>[
+      for (var i = 0; i < pendingTasks.length; i++) ...<Widget>[
+        if (i > 0) const SizedBox(height: 12),
+        buildTaskItem(pendingTasks[i]),
+      ],
+      if (completedTodayTasks.isNotEmpty) ...<Widget>[
+        if (pendingTasks.isNotEmpty) const SizedBox(height: 18),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Selesai hari ini',
+            key: Key('completed-today-section'),
+            style: UITypography.sectionLabel,
+          ),
+        ),
+        for (var i = 0; i < completedTodayTasks.length; i++) ...<Widget>[
+          if (i > 0) const SizedBox(height: 12),
+          buildTaskItem(completedTodayTasks[i]),
+        ],
+      ],
+    ];
 
     return SafeArea(
       child: LayoutBuilder(
@@ -276,7 +344,7 @@ class _ActiveTasksTab extends ConsumerWidget {
                                         ),
                                       ),
                                     )
-                                  else if (visibleTasks.isEmpty)
+                                  else if (!hasVisibleTasks)
                                     Expanded(
                                       child: NeuSurface(
                                         pressed: true,
@@ -293,75 +361,9 @@ class _ActiveTasksTab extends ConsumerWidget {
                                     Expanded(
                                       child: SmoothScheduleTransition(
                                         signature: scheduleSignature,
-                                        child: ListView.separated(
-                                          itemCount: visibleTasks.length,
-                                          separatorBuilder: (_, _) =>
-                                              const SizedBox(height: 12),
-                                          itemBuilder: (context, index) {
-                                            final task = visibleTasks[index];
-                                            return Dismissible(
-                                              key: Key(
-                                                'task-dismiss-${task.id}',
-                                              ),
-                                              direction:
-                                                  DismissDirection.horizontal,
-                                              confirmDismiss:
-                                                  (direction) async {
-                                                    if (direction ==
-                                                        DismissDirection
-                                                            .startToEnd) {
-                                                      await onOpenTaskSheet(
-                                                        task: task,
-                                                      );
-                                                      return false;
-                                                    }
-
-                                                    final shouldDelete =
-                                                        await showDialog<bool>(
-                                                      context: context,
-                                                      barrierColor: Colors.black
-                                                          .withValues(
-                                                        alpha: 0.25,
-                                                      ),
-                                                      builder: (_) {
-                                                        return DeleteTaskDialog(
-                                                          taskTitle: task.title,
-                                                        );
-                                                      },
-                                                    );
-
-                                                    if (shouldDelete == true) {
-                                                      await controller.deleteTask(
-                                                        task.id,
-                                                      );
-                                                    }
-                                                    return false;
-                                                  },
-                                              background:
-                                                  const SwipeBackground(
-                                                icon: Icons.edit_rounded,
-                                                alignment:
-                                                    Alignment.centerLeft,
-                                                color: Colors.blueGrey,
-                                                label: 'Ubah',
-                                              ),
-                                              secondaryBackground:
-                                                  const SwipeBackground(
-                                                icon: Icons.delete_rounded,
-                                                alignment:
-                                                    Alignment.centerRight,
-                                                color: Colors.redAccent,
-                                                label: 'Hapus',
-                                              ),
-                                              child: TaskCartridge(
-                                                task: task,
-                                                isOverdue: controller
-                                                    .isOverdue(task),
-                                                onToggle: () => controller
-                                                    .toggleStatus(task.id),
-                                              ),
-                                            );
-                                          },
+                                        child: ListView(
+                                          key: const Key('active-task-list'),
+                                          children: taskListChildren,
                                         ),
                                       ),
                                     ),
