@@ -26,9 +26,12 @@ class ReminderPlanBuilder {
 
     final dueAtEpochMillis = task.dueAtEpochMillis;
     if (dueAtEpochMillis <= nowMillis) {
+      final snoozedUntil = task.snoozedUntilEpochMillis;
       return <ReminderPlanEntry>[
         ReminderPlanEntry(
-          scheduledAtEpochMillis: nowMillis + _catchUpLead.inMilliseconds,
+          scheduledAtEpochMillis: snoozedUntil != null && snoozedUntil > nowMillis
+              ? snoozedUntil
+              : nowMillis + _catchUpLead.inMilliseconds,
           isCloseDeadline: true,
         ),
       ];

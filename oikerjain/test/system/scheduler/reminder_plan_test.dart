@@ -123,6 +123,19 @@ void main() {
       expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
     });
 
+    test('respects snooze when overdue task has future snoozed-until', () {
+      final task = buildTask(
+        dueAtEpochMillis: DateTime(2026, 2, 15, 8, 30).millisecondsSinceEpoch,
+        snoozedUntilEpochMillis: DateTime(2026, 2, 15, 9, 15).millisecondsSinceEpoch,
+      );
+
+      final plan = planner.build(task: task, now: now);
+      final times = toTimes(plan);
+
+      expect(times, <DateTime>[DateTime(2026, 2, 15, 9, 15)]);
+      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+    });
+
     test('uses hourly cadence when deadline is within 1 day across local-day boundary', () {
       final task = buildTask(
         dueAtEpochMillis: DateTime(2026, 2, 16, 0).millisecondsSinceEpoch,
