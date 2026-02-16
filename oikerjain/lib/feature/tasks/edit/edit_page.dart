@@ -176,6 +176,24 @@ class _EditPageState extends ConsumerState<EditPage> {
     controller.setDueDateText(formatted);
   }
 
+  Future<void> _pickRepeatRule({
+    required BuildContext context,
+    required EditController controller,
+    required RepeatRule currentRule,
+  }) async {
+    final pickedRule = await showModalBottomSheet<RepeatRule>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _NeuRepeatRuleSheet(initialRule: currentRule),
+    );
+    if (pickedRule == null) {
+      return;
+    }
+
+    controller.setRepeatRule(pickedRule);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(editControllerProvider(widget.task));
@@ -381,29 +399,36 @@ class _EditPageState extends ConsumerState<EditPage> {
                   _FieldLabel('Pengulangan'),
                   const SizedBox(height: 8),
                   NeuSurface(
+                    key: const Key('repeat-dropdown'),
                     radius: 14,
+                    onTap: () => _pickRepeatRule(
+                      context: context,
+                      controller: controller,
+                      currentRule: state.repeatRule,
+                    ),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<RepeatRule>(
-                        key: const Key('repeat-dropdown'),
-                        value: state.repeatRule,
-                        dropdownColor: UIPalette.base,
-                        style: const TextStyle(
-                          color: UIPalette.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        isExpanded: true,
-                        onChanged: (value) {
-                          if (value != null) {
-                            controller.setRepeatRule(value);
-                          }
-                        },
-                        items: RepeatRule.values.map((rule) {
-                          return DropdownMenuItem<RepeatRule>(
-                            value: rule,
-                            child: Text(rule.label),
-                          );
-                        }).toList(),
+                    child: SizedBox(
+                      height: 44,
+                      child: Row(
+                        children: <Widget>[
+                          Icon(
+                            _repeatRuleIcon(state.repeatRule),
+                            size: 16,
+                            color: UIPalette.textMuted,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              state.repeatRule.label,
+                              style: UITypography.input,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.expand_more_rounded,
+                            size: 18,
+                            color: UIPalette.textMuted,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -641,6 +666,113 @@ class _NeuDatePickerSheetState extends State<_NeuDatePickerSheet> {
         ),
       ),
     );
+  }
+}
+
+class _NeuRepeatRuleSheet extends StatefulWidget {
+  const _NeuRepeatRuleSheet({required this.initialRule});
+
+  final RepeatRule initialRule;
+
+  @override
+  State<_NeuRepeatRuleSheet> createState() => _NeuRepeatRuleSheetState();
+}
+
+class _NeuRepeatRuleSheetState extends State<_NeuRepeatRuleSheet> {
+  late RepeatRule _selectedRule;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRule = widget.initialRule;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewPadding = MediaQuery.viewPaddingOf(context).bottom;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 20 + viewPadding),
+        child: NeuSurface(
+          radius: 28,
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const _FieldLabel('Pengulangan tugas'),
+              const SizedBox(height: 10),
+              ...RepeatRule.values.map((rule) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: rule == RepeatRule.weekly ? 0 : 8,
+                  ),
+                  child: NeuButton(
+                    key: Key('repeat-option-${rule.name}'),
+                    active: _selectedRule == rule,
+                    radius: 12,
+                    height: 42,
+                    onTap: () {
+                      setState(() {
+                        _selectedRule = rule;
+                      });
+                    },
+                    child: Row(
+                      children: <Widget>[
+                        Icon(_repeatRuleIcon(rule), size: 14),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            rule.label,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: NeuButton(
+                      key: const Key('repeat-picker-cancel-button'),
+                      radius: 12,
+                      onTap: () => Navigator.of(context).pop(),
+                      child: const Text('Batal'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: NeuButton(
+                      key: const Key('repeat-picker-confirm-button'),
+                      radius: 12,
+                      active: true,
+                      onTap: () => Navigator.of(context).pop(_selectedRule),
+                      child: const Text('Pilih'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+IconData _repeatRuleIcon(RepeatRule rule) {
+  switch (rule) {
+    case RepeatRule.none:
+      return Icons.block_rounded;
+    case RepeatRule.daily:
+      return Icons.today_rounded;
+    case RepeatRule.weekly:
+      return Icons.view_week_rounded;
   }
 }
 

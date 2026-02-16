@@ -9,6 +9,11 @@ class DeleteTaskUseCase {
 
   Future<void> call(String taskId) async {
     await _repository.deleteTask(taskId);
-    await _scheduler.cancel(taskId);
+    try {
+      await _scheduler.cancel(taskId);
+    } catch (_) {
+      // Persisting task deletion is the primary operation.
+      // Notification cancel failures should not block UI updates.
+    }
   }
 }
