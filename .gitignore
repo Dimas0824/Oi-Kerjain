@@ -1,0 +1,5 @@
+# keep personal artifacts out of git
+oikerjain/agent.md
+oikerjain/task.md
+oikerjain/design.jsx
+.vscode/
