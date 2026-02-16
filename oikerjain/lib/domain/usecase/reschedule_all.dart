@@ -25,6 +25,7 @@ class RescheduleAllUseCase {
 
     for (final task in tasks) {
       if (task.isDone) {
+        await _scheduler.cancel(task.id);
         continue;
       }
 

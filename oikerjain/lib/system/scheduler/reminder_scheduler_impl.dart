@@ -33,9 +33,11 @@ class ReminderSchedulerImpl implements ReminderScheduler {
   @override
   Future<void> rescheduleAll(List<Task> tasks) async {
     for (final task in tasks) {
-      if (!task.isDone) {
-        await schedule(task);
+      if (task.isDone) {
+        await cancel(task.id);
+        continue;
       }
+      await schedule(task);
     }
   }
 }

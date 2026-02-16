@@ -85,14 +85,66 @@ void main() {
       scheduler.lastRescheduled.map((task) => task.id),
       isNot(contains('non-repeat-overdue')),
     );
+    expect(scheduler.canceledTaskIds, isEmpty);
+  });
+
+  test('rescheduleAll cancels reminders for done tasks returned by repository', () async {
+    final clock = FixedClock(DateTime(2026, 2, 15, 9, 0));
+    final doneToday = Task(
+      id: 'done-today',
+      title: 'Done Today',
+      createdAtEpochMillis: DateTime(2026, 2, 15, 7).millisecondsSinceEpoch,
+      dueAtEpochMillis: DateTime(2026, 2, 15, 8).millisecondsSinceEpoch,
+      repeatRule: RepeatRule.none,
+      priority: TaskPriority.medium,
+      category: TaskCategory.work,
+      isDone: true,
+      completedAtEpochMillis: DateTime(2026, 2, 15, 8, 30).millisecondsSinceEpoch,
+      updatedAtEpochMillis: DateTime(2026, 2, 15, 8, 30).millisecondsSinceEpoch,
+    );
+    final futureTask = Task(
+      id: 'future',
+      title: 'Future',
+      createdAtEpochMillis: DateTime(2026, 2, 15, 9).millisecondsSinceEpoch,
+      dueAtEpochMillis: DateTime(2026, 2, 16, 9).millisecondsSinceEpoch,
+      repeatRule: RepeatRule.none,
+      priority: TaskPriority.low,
+      category: TaskCategory.personal,
+      isDone: false,
+      completedAtEpochMillis: null,
+      updatedAtEpochMillis: 1,
+    );
+
+    final repository = TaskRepositoryImpl(
+      InMemoryTaskStore(
+        clock: clock,
+        seedTasks: <Task>[doneToday, futureTask],
+      ),
+      clock: clock,
+    );
+    final scheduler = _RecordingScheduler();
+    final useCase = RescheduleAllUseCase(
+      repository,
+      scheduler,
+      const ComputeNextOccurrenceUseCase(),
+      clock: clock,
+    );
+
+    await useCase.call();
+
+    expect(scheduler.canceledTaskIds, <String>['done-today']);
+    expect(scheduler.lastRescheduled.map((task) => task.id), <String>['future']);
   });
 }
 
 class _RecordingScheduler implements ReminderScheduler {
   List<Task> lastRescheduled = <Task>[];
+  List<String> canceledTaskIds = <String>[];
 
   @override
-  Future<void> cancel(String taskId) async {}
+  Future<void> cancel(String taskId) async {
+    canceledTaskIds.add(taskId);
+  }
 
   @override
   Future<void> rescheduleAll(List<Task> tasks) async {

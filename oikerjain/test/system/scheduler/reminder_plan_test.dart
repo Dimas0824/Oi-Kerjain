@@ -93,6 +93,20 @@ void main() {
       expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
     });
 
+    test('uses hourly cadence when deadline is within 1 day across local-day boundary', () {
+      final task = buildTask(
+        dueAtEpochMillis: DateTime(2026, 2, 16, 0).millisecondsSinceEpoch,
+      );
+
+      final plan = planner.build(task: task, now: now);
+      final times = toTimes(plan);
+
+      expect(times.first, DateTime(2026, 2, 15, 10));
+      expect(times.last, DateTime(2026, 2, 16, 0));
+      expect(times.length, 15);
+      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+    });
+
     test('limits reminders to 72-hour rolling window', () {
       final task = buildTask(
         dueAtEpochMillis: DateTime(2026, 2, 25, 9).millisecondsSinceEpoch,
