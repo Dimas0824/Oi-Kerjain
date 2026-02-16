@@ -12,7 +12,7 @@ import 'package:oikerjain/model/task_priority.dart';
 import '../test_helpers.dart';
 
 void main() {
-  test('rescheduleAll rolls overdue repeat tasks and skips overdue non-repeat', () async {
+  test('rescheduleAll rolls overdue repeat tasks and keeps overdue non-repeat', () async {
     final clock = FixedClock(DateTime(2026, 2, 15, 9, 0));
     final repeatOverdue = Task(
       id: 'repeat-overdue',
@@ -79,11 +79,7 @@ void main() {
 
     expect(
       scheduler.lastRescheduled.map((task) => task.id).toList(),
-      containsAll(<String>['repeat-overdue', 'future']),
-    );
-    expect(
-      scheduler.lastRescheduled.map((task) => task.id),
-      isNot(contains('non-repeat-overdue')),
+      containsAll(<String>['repeat-overdue', 'non-repeat-overdue', 'future']),
     );
     expect(scheduler.canceledTaskIds, isEmpty);
   });

@@ -93,6 +93,36 @@ void main() {
       expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
     });
 
+    test('adds immediate catch-up reminder when deadline is within 1 hour', () {
+      final task = buildTask(
+        dueAtEpochMillis: DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch,
+      );
+
+      final plan = planner.build(task: task, now: now);
+      final times = toTimes(plan);
+
+      expect(
+        times,
+        <DateTime>[
+          DateTime(2026, 2, 15, 9, 1),
+          DateTime(2026, 2, 15, 9, 30),
+        ],
+      );
+      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+    });
+
+    test('adds immediate catch-up reminder for overdue task', () {
+      final task = buildTask(
+        dueAtEpochMillis: DateTime(2026, 2, 15, 8, 30).millisecondsSinceEpoch,
+      );
+
+      final plan = planner.build(task: task, now: now);
+      final times = toTimes(plan);
+
+      expect(times, <DateTime>[DateTime(2026, 2, 15, 9, 1)]);
+      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+    });
+
     test('uses hourly cadence when deadline is within 1 day across local-day boundary', () {
       final task = buildTask(
         dueAtEpochMillis: DateTime(2026, 2, 16, 0).millisecondsSinceEpoch,

@@ -53,9 +53,7 @@ class RescheduleAllUseCase {
         }
       }
 
-      if (candidate.dueAtEpochMillis >= nowMillis) {
-        reschedulable.add(candidate);
-      }
+      reschedulable.add(candidate);
     }
 
     await _scheduler.rescheduleAll(reschedulable);
