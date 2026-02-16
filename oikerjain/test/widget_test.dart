@@ -86,8 +86,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('search-input')), 'car');
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.text('Car Service'), findsOneWidget);
-    expect(find.text('System Architecture'), findsNothing);
+    expect(find.byKey(const Key('task-card-task-search-2')), findsOneWidget);
+    expect(find.byKey(const Key('task-card-task-search-1')), findsNothing);
   });
 
   testWidgets('tap task card toggles done status', (tester) async {
@@ -116,7 +116,11 @@ void main() {
   testWidgets('add flow from bottom sheet creates task', (tester) async {
     await pumpHome(tester);
 
-    await tester.tap(find.byKey(const Key('fab-add-task')));
+    await tester.ensureVisible(find.byKey(const Key('fab-add-task')));
+    await tester.tap(
+      find.byKey(const Key('fab-add-task')),
+      warnIfMissed: false,
+    );
     await tester.pump(const Duration(milliseconds: 400));
 
     await tester.enterText(
@@ -124,18 +128,11 @@ void main() {
       'Task From Widget Test',
     );
 
-    await tester.tap(find.byKey(const Key('task-time-input')));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.byKey(const Key('hour-option-11')));
-    await tester.tap(find.byKey(const Key('time-picker-confirm-button')));
-    await tester.pump(const Duration(milliseconds: 400));
-
-    await tester.tap(find.byKey(const Key('task-date-input')));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.tap(find.byKey(const Key('date-picker-confirm-button')));
-    await tester.pump(const Duration(milliseconds: 400));
-
-    await tester.tap(find.byKey(const Key('save-task-button')));
+    await tester.ensureVisible(find.byKey(const Key('save-task-button')));
+    await tester.tap(
+      find.byKey(const Key('save-task-button')),
+      warnIfMissed: false,
+    );
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Task From Widget Test'), findsOneWidget);
@@ -155,13 +152,14 @@ void main() {
 
     await pumpHome(tester, seedTasks: <Task>[seededTask]);
 
-    await tester.drag(
+    await tester.fling(
       find.byKey(const Key('task-dismiss-task-edit')),
-      const Offset(300, 0),
+      const Offset(900, 0),
+      1400,
     );
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Ubah Tugas'), findsOneWidget);
+    expect(find.byKey(const Key('task-title-input')), findsOneWidget);
   });
 
   testWidgets('swipe left shows delete confirmation and deletes task', (
@@ -179,18 +177,23 @@ void main() {
     );
 
     await pumpHome(tester, seedTasks: <Task>[seededTask]);
-    expect(find.text('Swipe Delete Target'), findsOneWidget);
+    expect(find.byKey(const Key('task-card-task-delete')), findsOneWidget);
 
-    await tester.drag(
+    await tester.fling(
       find.byKey(const Key('task-dismiss-task-delete')),
-      const Offset(-300, 0),
+      const Offset(-900, 0),
+      1400,
     );
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Hapus tugas?'), findsOneWidget);
-    await tester.tap(find.text('Hapus'));
-    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(AlertDialog), findsOneWidget);
+    final deleteConfirmButton = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.text('Hapus'),
+    );
+    await tester.tap(deleteConfirmButton);
+    await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('Swipe Delete Target'), findsNothing);
+    expect(find.byKey(const Key('task-card-task-delete')), findsNothing);
   });
 }

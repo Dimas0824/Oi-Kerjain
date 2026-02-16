@@ -207,96 +207,112 @@ class HomePage extends ConsumerWidget {
                                       )
                                     else
                                       Expanded(
-                                        child: ListView.separated(
-                                          itemCount: visibleTasks.length,
-                                          separatorBuilder: (_, _) =>
-                                              const SizedBox(height: 12),
-                                          itemBuilder: (context, index) {
-                                            final task = visibleTasks[index];
-                                            return Dismissible(
-                                              key: Key(
-                                                'task-dismiss-${task.id}',
-                                              ),
-                                              direction:
-                                                  DismissDirection.horizontal,
-                                              confirmDismiss: (direction) async {
-                                                if (direction ==
-                                                    DismissDirection
-                                                        .startToEnd) {
-                                                  await openTaskSheet(
-                                                    task: task,
-                                                  );
-                                                  return false;
-                                                }
-
-                                                final shouldDelete =
-                                                    await showDialog<bool>(
-                                                      context: context,
-                                                      builder: (dialogContext) {
-                                                        return AlertDialog(
-                                                          title: const Text(
-                                                            'Hapus tugas?',
-                                                          ),
-                                                          content: Text(
-                                                            'Tugas "${task.title}" akan dihapus.',
-                                                          ),
-                                                          actions: <Widget>[
-                                                            TextButton(
-                                                              onPressed: () {
-                                                                Navigator.of(
-                                                                  dialogContext,
-                                                                ).pop(false);
-                                                              },
-                                                              child: const Text(
-                                                                'Batal',
-                                                              ),
-                                                            ),
-                                                            TextButton(
-                                                              onPressed: () {
-                                                                Navigator.of(
-                                                                  dialogContext,
-                                                                ).pop(true);
-                                                              },
-                                                              child: const Text(
-                                                                'Hapus',
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        );
-                                                      },
-                                                    );
-
-                                                if (shouldDelete == true) {
-                                                  await controller.deleteTask(
-                                                    task.id,
-                                                  );
-                                                }
-                                                return false;
-                                              },
-                                              background: _SwipeBackground(
-                                                icon: Icons.edit_rounded,
-                                                alignment: Alignment.centerLeft,
-                                                color: Colors.blueGrey,
-                                                label: 'Ubah',
-                                              ),
-                                              secondaryBackground:
-                                                  _SwipeBackground(
-                                                    icon: Icons.delete_rounded,
-                                                    alignment:
-                                                        Alignment.centerRight,
-                                                    color: Colors.redAccent,
-                                                    label: 'Hapus',
-                                                  ),
-                                              child: _TaskCartridge(
-                                                task: task,
-                                                isOverdue: controller.isOverdue(
-                                                  task,
+                                        child: _SmoothScheduleTransition(
+                                          signature: scheduleSignature,
+                                          child: ListView.separated(
+                                            itemCount: visibleTasks.length,
+                                            separatorBuilder: (_, _) =>
+                                                const SizedBox(height: 12),
+                                            itemBuilder: (context, index) {
+                                              final task = visibleTasks[index];
+                                              return Dismissible(
+                                                key: Key(
+                                                  'task-dismiss-${task.id}',
                                                 ),
-                                                onToggle: () => controller
-                                                    .toggleStatus(task.id),
-                                              ),
-                                            );
-                                          },
+                                                direction:
+                                                    DismissDirection.horizontal,
+                                                confirmDismiss:
+                                                    (direction) async {
+                                                      if (direction ==
+                                                          DismissDirection
+                                                              .startToEnd) {
+                                                        await openTaskSheet(
+                                                          task: task,
+                                                        );
+                                                        return false;
+                                                      }
+
+                                                      final shouldDelete =
+                                                          await showDialog<bool>(
+                                                            context: context,
+                                                            builder: (
+                                                              dialogContext,
+                                                            ) {
+                                                              return AlertDialog(
+                                                                title:
+                                                                    const Text(
+                                                                      'Hapus tugas?',
+                                                                    ),
+                                                                content: Text(
+                                                                  'Tugas "${task.title}" akan dihapus.',
+                                                                ),
+                                                                actions: <Widget>[
+                                                                  TextButton(
+                                                                    onPressed: () {
+                                                                      Navigator.of(
+                                                                        dialogContext,
+                                                                      ).pop(
+                                                                        false,
+                                                                      );
+                                                                    },
+                                                                    child:
+                                                                        const Text(
+                                                                          'Batal',
+                                                                        ),
+                                                                  ),
+                                                                  TextButton(
+                                                                    onPressed: () {
+                                                                      Navigator.of(
+                                                                        dialogContext,
+                                                                      ).pop(
+                                                                        true,
+                                                                      );
+                                                                    },
+                                                                    child:
+                                                                        const Text(
+                                                                          'Hapus',
+                                                                        ),
+                                                                  ),
+                                                                ],
+                                                              );
+                                                            },
+                                                          );
+
+                                                      if (shouldDelete ==
+                                                          true) {
+                                                        await controller
+                                                            .deleteTask(
+                                                              task.id,
+                                                            );
+                                                      }
+                                                      return false;
+                                                    },
+                                                background: _SwipeBackground(
+                                                  icon: Icons.edit_rounded,
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  color: Colors.blueGrey,
+                                                  label: 'Ubah',
+                                                ),
+                                                secondaryBackground:
+                                                    _SwipeBackground(
+                                                      icon:
+                                                          Icons.delete_rounded,
+                                                      alignment:
+                                                          Alignment.centerRight,
+                                                      color: Colors.redAccent,
+                                                      label: 'Hapus',
+                                                    ),
+                                                child: _TaskCartridge(
+                                                  task: task,
+                                                  isOverdue: controller
+                                                      .isOverdue(task),
+                                                  onToggle: () => controller
+                                                      .toggleStatus(task.id),
+                                                ),
+                                              );
+                                            },
+                                          ),
                                         ),
                                       ),
                                     if (state.errorMessage != null)
@@ -358,6 +374,67 @@ class HomePage extends ConsumerWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _SmoothScheduleTransition extends StatefulWidget {
+  const _SmoothScheduleTransition({
+    required this.signature,
+    required this.child,
+  });
+
+  final String signature;
+  final Widget child;
+
+  @override
+  State<_SmoothScheduleTransition> createState() =>
+      _SmoothScheduleTransitionState();
+}
+
+class _SmoothScheduleTransitionState extends State<_SmoothScheduleTransition>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 520),
+    value: 1,
+  );
+  late final Animation<double> _fade = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeInOutCubic,
+  );
+  late final Animation<Offset> _slide = Tween<Offset>(
+    begin: const Offset(0, 0.012),
+    end: Offset.zero,
+  ).animate(
+    CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    ),
+  );
+
+  @override
+  void didUpdateWidget(covariant _SmoothScheduleTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.signature != widget.signature) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: widget.child,
       ),
     );
   }
@@ -477,7 +554,8 @@ class _DashboardControlUnit extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 460),
+                curve: Curves.easeInOutCubic,
                 width: 7,
                 height: 7,
                 decoration: BoxDecoration(
@@ -496,11 +574,30 @@ class _DashboardControlUnit extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                criticalTask == null
-                    ? 'Semua aman'
-                    : 'Perlu perhatian prioritas',
-                style: UITypography.sectionLabel,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 460),
+                switchInCurve: Curves.easeInOutCubic,
+                switchOutCurve: Curves.easeInOutCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.025),
+                            end: Offset.zero,
+                          ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Text(
+                  criticalTask == null
+                      ? 'Semua aman'
+                      : 'Perlu perhatian prioritas',
+                  key: ValueKey<bool>(criticalTask == null),
+                  style: UITypography.sectionLabel,
+                ),
               ),
             ],
           ),
@@ -516,45 +613,67 @@ class _DashboardControlUnit extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   child: SizedBox(
                     height: 88,
-                    child: criticalTask == null
-                        ? const Center(
-                            child: Text(
-                              'Tidak ada tugas prioritas',
-                              textAlign: TextAlign.center,
-                              style: UITypography.captionStrong,
-                            ),
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              const Text(
-                                'Fokus utama',
-                                style: UITypography.micro,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                criticalTask!.title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: UIPalette.textSecondary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                'Tenggat: ${DateFormat('dd-MM-yyyy HH:mm').format(criticalTask!.dueAt)}',
-                                style: TextStyle(
-                                  color: criticalTask!.priority.rank >= 3
-                                      ? Colors.redAccent
-                                      : UIPalette.textMuted,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 560),
+                      switchInCurve: Curves.easeInOutCubic,
+                      switchOutCurve: Curves.easeInOutCubic,
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(0.008, 0.02),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                            child: child,
                           ),
+                        );
+                      },
+                      child: criticalTask == null
+                          ? const Center(
+                              key: ValueKey<String>('no-critical'),
+                              child: Text(
+                                'Tidak ada tugas prioritas',
+                                textAlign: TextAlign.center,
+                                style: UITypography.captionStrong,
+                              ),
+                            )
+                          : Column(
+                              key: ValueKey<String>(
+                                'critical-${criticalTask!.id}-${criticalTask!.updatedAtEpochMillis}',
+                              ),
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                const Text(
+                                  'Fokus utama',
+                                  style: UITypography.micro,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  criticalTask!.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: UIPalette.textSecondary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  'Tenggat: ${DateFormat('dd-MM-yyyy HH:mm').format(criticalTask!.dueAt)}',
+                                  style: TextStyle(
+                                    color: criticalTask!.priority.rank >= 3
+                                        ? Colors.redAccent
+                                        : UIPalette.textMuted,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
                   ),
                 ),
               ),
@@ -564,18 +683,39 @@ class _DashboardControlUnit extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              Text(
-                'Tugas tertunda: $pendingTasks',
-                style: const TextStyle(
-                  color: UIPalette.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.8,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 460),
+                switchInCurve: Curves.easeInOutCubic,
+                switchOutCurve: Curves.easeInOutCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.015),
+                            end: Offset.zero,
+                          ).animate(animation),
+                      child: child,
+                    ),
+                  );
+                },
+                child: Text(
+                  'Tugas tertunda: $pendingTasks',
+                  key: ValueKey<int>(pendingTasks),
+                  style: const TextStyle(
+                    color: UIPalette.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
                 ),
               ),
               Row(
                 children: List<Widget>.generate(3, (index) {
-                  return Container(
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 460),
+                    curve: Curves.easeInOutCubic,
                     margin: const EdgeInsets.only(left: 2),
                     width: 4,
                     height: 12,
@@ -611,7 +751,7 @@ class _WateryProgressOrbState extends State<_WateryProgressOrb>
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2600),
+    duration: const Duration(milliseconds: 3400),
   )..repeat();
 
   @override
@@ -624,63 +764,71 @@ class _WateryProgressOrbState extends State<_WateryProgressOrb>
   Widget build(BuildContext context) {
     final safeProgress = widget.progress.clamp(0, 100).toInt();
 
-    return SizedBox(
-      width: _orbSize,
-      height: _orbSize,
-      child: Stack(
-        alignment: Alignment.center,
-        children: <Widget>[
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: <Color>[
-                  Colors.white.withValues(alpha: 0.95),
-                  UIPalette.base.withValues(alpha: 0.75),
-                ],
-              ),
-              boxShadow: UIPalette.raisedSmall(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(9),
-            child: ClipOval(
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (_, __) {
-                  return CustomPaint(
-                    size: const Size.square(_orbSize),
-                    painter: _WaterFillPainter(
-                      progress: safeProgress / 100,
-                      phase: _controller.value * 2 * math.pi,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: UIPalette.base.withValues(alpha: 0.88),
-              boxShadow: UIPalette.pressed(),
-            ),
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 920),
+      curve: Curves.easeInOutCubic,
+      tween: Tween<double>(end: safeProgress / 100),
+      builder: (context, animatedProgress, _) {
+        final animatedPercent = (animatedProgress * 100).round();
+        return SizedBox(
+          width: _orbSize,
+          height: _orbSize,
+          child: Stack(
             alignment: Alignment.center,
-            child: Text(
-              '$safeProgress%',
-              style: const TextStyle(
-                fontSize: 24,
-                color: UIPalette.accent,
-                fontWeight: FontWeight.w900,
+            children: <Widget>[
+              Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[
+                      Colors.white.withValues(alpha: 0.95),
+                      UIPalette.base.withValues(alpha: 0.75),
+                    ],
+                  ),
+                  boxShadow: UIPalette.raisedSmall(),
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.all(9),
+                child: ClipOval(
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (_, __) {
+                      return CustomPaint(
+                        size: const Size.square(_orbSize),
+                        painter: _WaterFillPainter(
+                          progress: animatedProgress,
+                          phase: _controller.value * 2 * math.pi,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: UIPalette.base.withValues(alpha: 0.88),
+                  boxShadow: UIPalette.pressed(),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '$animatedPercent%',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    color: UIPalette.accent,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -797,7 +945,9 @@ class _TaskCartridge extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Opacity(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 420),
+                curve: Curves.easeInOutCubic,
                 opacity: task.isDone ? 0.55 : 1,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,17 +955,22 @@ class _TaskCartridge extends StatelessWidget {
                     Row(
                       children: <Widget>[
                         Expanded(
-                          child: Text(
-                            task.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 380),
+                            curve: Curves.easeInOutCubic,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
                               decoration: task.isDone
                                   ? TextDecoration.lineThrough
-                                  : null,
+                                  : TextDecoration.none,
+                              decorationThickness: 2,
                               color: UIPalette.textSecondary,
+                            ),
+                            child: Text(
+                              task.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ),
@@ -921,14 +1076,31 @@ class _TaskCartridge extends StatelessWidget {
                 child: SizedBox(
                   width: 16,
                   height: 16,
-                  child: task.isDone
-                      ? Icon(
-                          Icons.check_rounded,
-                          key: Key('task-check-icon-${task.id}'),
-                          size: 16,
-                          color: Colors.white,
-                        )
-                      : null,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 420),
+                    switchInCurve: Curves.easeInOutCubic,
+                    switchOutCurve: Curves.easeInOutCubic,
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.9,
+                            end: 1,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: task.isDone
+                        ? Icon(
+                            Icons.check_rounded,
+                            key: Key('task-check-icon-${task.id}'),
+                            size: 16,
+                            color: Colors.white,
+                          )
+                        : const SizedBox.shrink(key: ValueKey<String>('empty')),
+                  ),
                 ),
               ),
             ),
@@ -1001,7 +1173,7 @@ class _PulseDotState extends State<_PulseDot>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 1200),
+    duration: const Duration(milliseconds: 2000),
   )..repeat(reverse: true);
 
   @override
