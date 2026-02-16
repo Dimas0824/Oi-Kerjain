@@ -11,7 +11,7 @@ Dokumentasi teknis developer ada di `oikerjain/README.md`.
 - Workflow cepat: tambah tugas dalam beberapa tap.
 - Progress harian jelas (termasuk tugas yang selesai hari ini).
 - Riwayat rapi dengan filter minggu dan rentang tanggal custom.
-- Notifikasi lokal dengan aksi cepat (`DONE`, `SNOOZE 10M`).
+- Notifikasi lokal dengan escalation reminder + aksi cepat (`DONE`, `SNOOZE 1H`, `SNOOZE 2H`, `SNOOZE 4H`, `SNOOZE +1H`).
 
 ## Galeri Aplikasi
 

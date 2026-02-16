@@ -45,6 +45,7 @@ class RescheduleAllUseCase {
         if (dueAtMillis != task.dueAtEpochMillis) {
           candidate = task.copyWith(
             dueAtEpochMillis: dueAtMillis,
+            clearSnoozedUntilEpochMillis: true,
             updatedAtEpochMillis: nowMillis,
           );
           await _repository.upsertTask(candidate);

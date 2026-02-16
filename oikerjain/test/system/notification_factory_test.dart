@@ -32,15 +32,31 @@ void main() {
     });
 
     test('encodes and decodes taskId from payload', () {
-      final payload = factory.buildPayload(createTask());
+      final payload = factory.buildPayload(
+        createTask(),
+        scheduledAtEpochMillis: DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch,
+        isCloseDeadline: true,
+      );
       final taskId = factory.taskIdFromPayload(payload);
+      final parsed = factory.parsePayload(payload);
 
       expect(taskId, 'task-1');
+      expect(parsed?.scheduledAtEpochMillis, DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch);
+      expect(parsed?.isCloseDeadline, isTrue);
     });
 
     test('returns null when payload is malformed', () {
       expect(factory.taskIdFromPayload('{bad'), isNull);
       expect(factory.taskIdFromPayload(null), isNull);
+    });
+
+    test('supports legacy payload with only taskId', () {
+      const legacyPayload = '{"taskId":"task-legacy"}';
+      final parsed = factory.parsePayload(legacyPayload);
+
+      expect(parsed?.taskId, 'task-legacy');
+      expect(parsed?.scheduledAtEpochMillis, isNull);
+      expect(parsed?.isCloseDeadline, isFalse);
     });
   });
 }

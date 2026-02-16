@@ -69,6 +69,7 @@ class TaskRepositoryImpl implements TaskRepository {
           isDone: isDone,
           completedAtEpochMillis: isDone ? nowMillis : null,
           clearCompletedAtEpochMillis: !isDone,
+          clearSnoozedUntilEpochMillis: true,
           updatedAtEpochMillis: nowMillis,
         );
         break;
@@ -86,8 +87,12 @@ class TaskRepositoryImpl implements TaskRepository {
     for (var i = 0; i < tasks.length; i++) {
       final current = tasks[i];
       if (current.id == taskId) {
+        final snoozedUntil = nowMillis + by.inMilliseconds;
+        final clampedSnoozedUntil = snoozedUntil > current.dueAtEpochMillis
+            ? current.dueAtEpochMillis
+            : snoozedUntil;
         tasks[i] = current.copyWith(
-          dueAtEpochMillis: current.dueAtEpochMillis + by.inMilliseconds,
+          snoozedUntilEpochMillis: clampedSnoozedUntil,
           updatedAtEpochMillis: nowMillis,
         );
         break;

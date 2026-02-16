@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../../core/constants/notification_const.dart';
 import '../../model/task.dart';
+import '../scheduler/reminder_plan.dart';
 import 'notification_factory.dart';
 
 typedef NotificationActionCallback =
@@ -21,6 +22,7 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin;
   final NotificationFactory _notificationFactory;
   NotificationActionCallback? _actionCallback;
+  AndroidScheduleMode _androidScheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
 
   Future<void> init({required NotificationActionCallback onAction}) async {
     _actionCallback = onAction;
@@ -30,7 +32,16 @@ class LocalNotificationService {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-    const settings = InitializationSettings(android: androidSettings);
+    final darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+      notificationCategories: _darwinNotificationCategories(),
+    );
+    final settings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+    );
 
     await _plugin.initialize(
       settings,
@@ -42,58 +53,70 @@ class LocalNotificationService {
           AndroidFlutterLocalNotificationsPlugin
         >();
     await androidPlugin?.requestNotificationsPermission();
+    await _configureAndroidScheduleMode(androidPlugin);
     await androidPlugin?.createNotificationChannel(
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         NotificationConst.channelId,
         NotificationConst.channelName,
         description: NotificationConst.channelDescription,
         importance: Importance.max,
+        playSound: true,
+        sound: const RawResourceAndroidNotificationSound(
+          NotificationConst.androidSoundResourceName,
+        ),
       ),
     );
   }
 
-  Future<void> scheduleTask(Task task) async {
-    final when = tz.TZDateTime.fromMillisecondsSinceEpoch(
-      tz.local,
-      task.dueAtEpochMillis,
-    );
-
-    if (when.isBefore(tz.TZDateTime.now(tz.local))) {
+  Future<void> scheduleTaskReminders(
+    Task task,
+    List<ReminderPlanEntry> reminders,
+  ) async {
+    await cancelTask(task.id);
+    if (task.isDone || reminders.isEmpty) {
       return;
     }
 
-    final details = NotificationDetails(
-      android: AndroidNotificationDetails(
-        NotificationConst.channelId,
-        NotificationConst.channelName,
-        channelDescription: NotificationConst.channelDescription,
-        importance: Importance.max,
-        priority: Priority.high,
-        actions: <AndroidNotificationAction>[
-          const AndroidNotificationAction(NotificationConst.actionDone, 'DONE'),
-          const AndroidNotificationAction(
-            NotificationConst.actionSnooze10m,
-            'SNOOZE 10M',
-          ),
-        ],
-      ),
-    );
+    final now = tz.TZDateTime.now(tz.local);
+    for (final reminder in reminders) {
+      final when = tz.TZDateTime.fromMillisecondsSinceEpoch(
+        tz.local,
+        reminder.scheduledAtEpochMillis,
+      );
+      if (!when.isAfter(now)) {
+        continue;
+      }
 
-    await _plugin.zonedSchedule(
-      _notificationId(task.id),
-      _notificationFactory.buildTitle(task),
-      _notificationFactory.buildBody(task),
-      when,
-      details,
-      payload: _notificationFactory.buildPayload(task),
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
+      await _plugin.zonedSchedule(
+        _notificationId(task.id, reminder.scheduledAtEpochMillis),
+        _notificationFactory.buildTitle(task),
+        _notificationFactory.buildBody(task),
+        when,
+        _buildNotificationDetails(reminder.isCloseDeadline),
+        payload: _notificationFactory.buildPayload(
+          task,
+          scheduledAtEpochMillis: reminder.scheduledAtEpochMillis,
+          isCloseDeadline: reminder.isCloseDeadline,
+        ),
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        androidScheduleMode: _androidScheduleMode,
+      );
+    }
   }
 
   Future<void> cancelTask(String taskId) async {
-    await _plugin.cancel(_notificationId(taskId));
+    final pending = await _plugin.pendingNotificationRequests();
+    for (final request in pending) {
+      final requestTaskId = _notificationFactory.taskIdFromPayload(
+        request.payload,
+      );
+      if (requestTaskId == taskId) {
+        await _plugin.cancel(request.id);
+      }
+    }
+
+    await _plugin.cancel(_legacyNotificationId(taskId));
   }
 
   Future<void> _onDidReceiveNotificationResponse(
@@ -103,7 +126,143 @@ class LocalNotificationService {
     await _actionCallback?.call(taskId: taskId, actionId: response.actionId);
   }
 
-  int _notificationId(String taskId) => taskId.hashCode & 0x7fffffff;
+  NotificationDetails _buildNotificationDetails(bool isCloseDeadline) {
+    final androidActions = isCloseDeadline
+        ? _closeDeadlineAndroidActions()
+        : _defaultAndroidActions();
+
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        NotificationConst.channelId,
+        NotificationConst.channelName,
+        channelDescription: NotificationConst.channelDescription,
+        importance: Importance.max,
+        priority: Priority.high,
+        visibility: NotificationVisibility.public,
+        playSound: true,
+        sound: const RawResourceAndroidNotificationSound(
+          NotificationConst.androidSoundResourceName,
+        ),
+        actions: androidActions,
+      ),
+      iOS: DarwinNotificationDetails(
+        sound: NotificationConst.iosSoundFileName,
+        categoryIdentifier: isCloseDeadline
+            ? NotificationConst.iosCloseDeadlineCategoryId
+            : NotificationConst.iosDefaultCategoryId,
+      ),
+    );
+  }
+
+  List<AndroidNotificationAction> _defaultAndroidActions() {
+    return const <AndroidNotificationAction>[
+      AndroidNotificationAction(
+        NotificationConst.actionDone,
+        'DONE',
+        showsUserInterface: true,
+      ),
+    ];
+  }
+
+  List<AndroidNotificationAction> _closeDeadlineAndroidActions() {
+    return const <AndroidNotificationAction>[
+      AndroidNotificationAction(
+        NotificationConst.actionSnooze1h,
+        'SNOOZE 1H',
+        showsUserInterface: true,
+      ),
+      AndroidNotificationAction(
+        NotificationConst.actionSnooze2h,
+        'SNOOZE 2H',
+        showsUserInterface: true,
+      ),
+      AndroidNotificationAction(
+        NotificationConst.actionSnooze4h,
+        'SNOOZE 4H',
+        showsUserInterface: true,
+      ),
+      AndroidNotificationAction(
+        NotificationConst.actionSnoozeCustom,
+        'SNOOZE +1H',
+        showsUserInterface: true,
+      ),
+    ];
+  }
+
+  List<DarwinNotificationCategory> _darwinNotificationCategories() {
+    return <DarwinNotificationCategory>[
+      DarwinNotificationCategory(
+        NotificationConst.iosDefaultCategoryId,
+        actions: <DarwinNotificationAction>[
+          DarwinNotificationAction.plain(
+            NotificationConst.actionDone,
+            'DONE',
+            options: <DarwinNotificationActionOption>{
+              DarwinNotificationActionOption.foreground,
+            },
+          ),
+        ],
+      ),
+      DarwinNotificationCategory(
+        NotificationConst.iosCloseDeadlineCategoryId,
+        actions: <DarwinNotificationAction>[
+          DarwinNotificationAction.plain(
+            NotificationConst.actionSnooze1h,
+            'SNOOZE 1H',
+            options: <DarwinNotificationActionOption>{
+              DarwinNotificationActionOption.foreground,
+            },
+          ),
+          DarwinNotificationAction.plain(
+            NotificationConst.actionSnooze2h,
+            'SNOOZE 2H',
+            options: <DarwinNotificationActionOption>{
+              DarwinNotificationActionOption.foreground,
+            },
+          ),
+          DarwinNotificationAction.plain(
+            NotificationConst.actionSnooze4h,
+            'SNOOZE 4H',
+            options: <DarwinNotificationActionOption>{
+              DarwinNotificationActionOption.foreground,
+            },
+          ),
+          DarwinNotificationAction.plain(
+            NotificationConst.actionSnoozeCustom,
+            'SNOOZE +1H',
+            options: <DarwinNotificationActionOption>{
+              DarwinNotificationActionOption.foreground,
+            },
+          ),
+        ],
+      ),
+    ];
+  }
+
+  int _notificationId(String taskId, int scheduledAtEpochMillis) =>
+      Object.hash(taskId, scheduledAtEpochMillis) & 0x7fffffff;
+
+  int _legacyNotificationId(String taskId) => taskId.hashCode & 0x7fffffff;
+
+  Future<void> _configureAndroidScheduleMode(
+    AndroidFlutterLocalNotificationsPlugin? androidPlugin,
+  ) async {
+    if (androidPlugin == null) {
+      return;
+    }
+
+    var canScheduleExact =
+        await androidPlugin.canScheduleExactNotifications() ?? false;
+    if (!canScheduleExact) {
+      await androidPlugin.requestExactAlarmsPermission();
+      canScheduleExact =
+          await androidPlugin.canScheduleExactNotifications() ?? false;
+    }
+
+    _androidScheduleMode = canScheduleExact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+  }
 
   Future<void> _configureLocalTimezone() async {
     try {

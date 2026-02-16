@@ -65,7 +65,10 @@ final localNotificationServiceProvider = Provider<LocalNotificationService>(
 );
 
 final reminderSchedulerProvider = Provider<ReminderScheduler>(
-  (ref) => ReminderSchedulerImpl(ref.watch(localNotificationServiceProvider)),
+  (ref) => ReminderSchedulerImpl(
+    ref.watch(localNotificationServiceProvider),
+    clock: ref.watch(clockProvider),
+  ),
 );
 
 final getTasksUseCaseProvider = Provider<GetTasksUseCase>(

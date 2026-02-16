@@ -21,9 +21,13 @@ Oi!Kerjain adalah aplikasi task scheduler harian berbasis Flutter dengan fokus:
   - custom date range picker (custom neumorphic sheet),
   - grouping berdasarkan `createdAt`.
 - Retention riwayat 14 hari berbasis `completedAt`.
-- Local notifications dengan quick actions:
-  - `DONE`,
-  - `SNOOZE 10M`.
+- Local notifications dengan escalation reminder:
+  - `1x/hari` saat deadline masih > 3 hari,
+  - `2x/hari` saat deadline <= 3 hari,
+  - `1x/jam` saat deadline <= 1 hari / hari yang sama.
+- Quick actions:
+  - default reminder: `DONE`,
+  - close-deadline reminder: `SNOOZE 1H`, `SNOOZE 2H`, `SNOOZE 4H`, `SNOOZE +1H`.
 
 ## 3. Tech Stack
 
@@ -82,8 +86,8 @@ Business rules utama:
 
 - Service: `lib/system/notification/local_notification_service.dart`
 - Channel:
-  - `id`: `oikerjain_reminders`
-  - action IDs: `DONE`, `SNOOZE_10M`
+  - `id`: `oikerjain_reminders_v2`
+  - action IDs: `DONE`, `SNOOZE_1H`, `SNOOZE_2H`, `SNOOZE_4H`, `SNOOZE_CUSTOM`
 - Startup (`lib/main.dart`):
   1. cleanup history expired,
   2. init notification plugin + timezone,

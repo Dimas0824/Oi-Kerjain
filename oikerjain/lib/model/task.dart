@@ -14,6 +14,7 @@ class Task {
     required this.category,
     required this.isDone,
     this.completedAtEpochMillis,
+    this.snoozedUntilEpochMillis,
     required this.updatedAtEpochMillis,
   });
 
@@ -27,6 +28,7 @@ class Task {
   final TaskCategory category;
   final bool isDone;
   final int? completedAtEpochMillis;
+  final int? snoozedUntilEpochMillis;
   final int updatedAtEpochMillis;
 
   DateTime get createdAt =>
@@ -37,6 +39,10 @@ class Task {
   DateTime? get completedAt => completedAtEpochMillis == null
       ? null
       : DateTime.fromMillisecondsSinceEpoch(completedAtEpochMillis!);
+
+  DateTime? get snoozedUntil => snoozedUntilEpochMillis == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(snoozedUntilEpochMillis!);
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -50,6 +56,7 @@ class Task {
       'category': category.name,
       'isDone': isDone,
       'completedAtEpochMillis': completedAtEpochMillis,
+      'snoozedUntilEpochMillis': snoozedUntilEpochMillis,
       'updatedAtEpochMillis': updatedAtEpochMillis,
     };
   }
@@ -66,6 +73,8 @@ class Task {
     final completedAtEpochMillis =
         (json['completedAtEpochMillis'] as num?)?.toInt() ??
         (isDone ? updatedAtEpochMillis : null);
+    final snoozedUntilEpochMillis =
+        (json['snoozedUntilEpochMillis'] as num?)?.toInt();
 
     if (id == null ||
         title == null ||
@@ -86,6 +95,7 @@ class Task {
       category: TaskCategoryX.fromName(json['category']?.toString() ?? ''),
       isDone: isDone,
       completedAtEpochMillis: completedAtEpochMillis,
+      snoozedUntilEpochMillis: snoozedUntilEpochMillis,
       updatedAtEpochMillis: updatedAtEpochMillis,
     );
   }
@@ -102,6 +112,8 @@ class Task {
     bool? isDone,
     int? completedAtEpochMillis,
     bool clearCompletedAtEpochMillis = false,
+    int? snoozedUntilEpochMillis,
+    bool clearSnoozedUntilEpochMillis = false,
     int? updatedAtEpochMillis,
   }) {
     return Task(
@@ -117,6 +129,9 @@ class Task {
       completedAtEpochMillis: clearCompletedAtEpochMillis
           ? null
           : completedAtEpochMillis ?? this.completedAtEpochMillis,
+      snoozedUntilEpochMillis: clearSnoozedUntilEpochMillis
+          ? null
+          : snoozedUntilEpochMillis ?? this.snoozedUntilEpochMillis,
       updatedAtEpochMillis: updatedAtEpochMillis ?? this.updatedAtEpochMillis,
     );
   }

@@ -18,6 +18,7 @@ void main() {
         category: TaskCategory.personal,
         isDone: true,
         completedAtEpochMillis: DateTime(2026, 2, 12, 10).millisecondsSinceEpoch,
+        snoozedUntilEpochMillis: DateTime(2026, 2, 11, 10).millisecondsSinceEpoch,
         updatedAtEpochMillis: DateTime(2026, 2, 12, 10).millisecondsSinceEpoch,
       );
 
@@ -26,6 +27,7 @@ void main() {
       expect(decoded.id, source.id);
       expect(decoded.createdAtEpochMillis, source.createdAtEpochMillis);
       expect(decoded.completedAtEpochMillis, source.completedAtEpochMillis);
+      expect(decoded.snoozedUntilEpochMillis, source.snoozedUntilEpochMillis);
     });
 
     test('fromJson falls back to updatedAt for legacy payload', () {
@@ -46,6 +48,28 @@ void main() {
 
       expect(task.createdAtEpochMillis, updatedAt);
       expect(task.completedAtEpochMillis, updatedAt);
+      expect(task.snoozedUntilEpochMillis, isNull);
+    });
+
+    test('copyWith can clear snoozedUntil', () {
+      final source = Task(
+        id: 'task-copy',
+        title: 'Task Copy',
+        description: 'Desc',
+        createdAtEpochMillis: DateTime(2026, 2, 10, 8).millisecondsSinceEpoch,
+        dueAtEpochMillis: DateTime(2026, 2, 11, 9).millisecondsSinceEpoch,
+        repeatRule: RepeatRule.none,
+        priority: TaskPriority.medium,
+        category: TaskCategory.work,
+        isDone: false,
+        completedAtEpochMillis: null,
+        snoozedUntilEpochMillis: DateTime(2026, 2, 10, 10).millisecondsSinceEpoch,
+        updatedAtEpochMillis: DateTime(2026, 2, 10, 8).millisecondsSinceEpoch,
+      );
+
+      final cleared = source.copyWith(clearSnoozedUntilEpochMillis: true);
+
+      expect(cleared.snoozedUntilEpochMillis, isNull);
     });
   });
 }

@@ -24,6 +24,7 @@ void main() {
       category: TaskCategory.work,
       isDone: false,
       completedAtEpochMillis: null,
+      snoozedUntilEpochMillis: DateTime(2026, 2, 14, 10).millisecondsSinceEpoch,
       updatedAtEpochMillis: 1,
     );
     final nonRepeatOverdue = Task(
@@ -74,6 +75,7 @@ void main() {
       DateTime.fromMillisecondsSinceEpoch(updatedRepeat.dueAtEpochMillis),
       DateTime(2026, 2, 16, 9),
     );
+    expect(updatedRepeat.snoozedUntilEpochMillis, isNull);
 
     expect(
       scheduler.lastRescheduled.map((task) => task.id).toList(),

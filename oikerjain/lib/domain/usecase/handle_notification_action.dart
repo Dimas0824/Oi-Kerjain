@@ -43,8 +43,9 @@ class HandleNotificationActionUseCase {
       return;
     }
 
-    if (actionId == NotificationConst.actionSnooze10m) {
-      await _snoozeTask(task.id);
+    final snoozeDuration = _resolveSnoozeDuration(actionId);
+    if (snoozeDuration != null) {
+      await _snoozeTask(task.id, by: snoozeDuration);
       return;
     }
 
@@ -87,8 +88,26 @@ class HandleNotificationActionUseCase {
     await _upsertTask(
       task.copyWith(
         dueAtEpochMillis: nextDue,
+        clearSnoozedUntilEpochMillis: true,
         updatedAtEpochMillis: nowMillis,
       ),
     );
+  }
+
+  Duration? _resolveSnoozeDuration(String? actionId) {
+    switch (actionId) {
+      case NotificationConst.actionSnooze1h:
+        return const Duration(hours: 1);
+      case NotificationConst.actionSnooze2h:
+        return const Duration(hours: 2);
+      case NotificationConst.actionSnooze4h:
+        return const Duration(hours: 4);
+      case NotificationConst.actionSnoozeCustom:
+        return const Duration(hours: 1);
+      case NotificationConst.actionSnooze10mLegacy:
+        return const Duration(minutes: 10);
+      default:
+        return null;
+    }
   }
 }

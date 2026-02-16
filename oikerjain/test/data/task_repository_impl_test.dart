@@ -216,7 +216,7 @@ void main() {
       },
     );
 
-    test('snoozeTask shifts dueAt by 10 minutes', () async {
+    test('snoozeTask preserves dueAt and sets snoozedUntil', () async {
       final baseDueAt = DateTime(2026, 2, 15, 10).millisecondsSinceEpoch;
       final store = InMemoryTaskStore(
         clock: clock,
@@ -240,10 +240,128 @@ void main() {
       await repository.snoozeTask('task-x');
       final tasks = await repository.getTasks();
 
+      expect(tasks.single.dueAtEpochMillis, baseDueAt);
       expect(
-        tasks.single.dueAtEpochMillis,
-        baseDueAt + const Duration(minutes: 10).inMilliseconds,
+        tasks.single.snoozedUntilEpochMillis,
+        clock.now().millisecondsSinceEpoch +
+            const Duration(minutes: 10).inMilliseconds,
       );
+    });
+
+    test('snoozeTask clamps snoozedUntil to dueAt', () async {
+      final dueAt = DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch;
+      final store = InMemoryTaskStore(
+        clock: clock,
+        seedTasks: <Task>[
+          Task(
+            id: 'task-clamp',
+            title: 'Task Clamp',
+            createdAtEpochMillis: DateTime(2026, 2, 15, 8).millisecondsSinceEpoch,
+            dueAtEpochMillis: dueAt,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.medium,
+            category: TaskCategory.work,
+            isDone: false,
+            completedAtEpochMillis: null,
+            updatedAtEpochMillis: 1,
+          )
+        ],
+      );
+      final repository = TaskRepositoryImpl(store, clock: clock);
+
+      await repository.snoozeTask('task-clamp', by: const Duration(hours: 2));
+      final task = (await repository.getTasks()).single;
+
+      expect(task.snoozedUntilEpochMillis, dueAt);
+      expect(task.dueAtEpochMillis, dueAt);
+    });
+
+    test('markDone clears snoozedUntil', () async {
+      final dueAt = DateTime(2026, 2, 15, 10).millisecondsSinceEpoch;
+      final snoozedUntil = DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch;
+      final store = InMemoryTaskStore(
+        clock: clock,
+        seedTasks: <Task>[
+          Task(
+            id: 'task-done',
+            title: 'Task Done',
+            createdAtEpochMillis: DateTime(2026, 2, 15, 8).millisecondsSinceEpoch,
+            dueAtEpochMillis: dueAt,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.medium,
+            category: TaskCategory.work,
+            isDone: false,
+            completedAtEpochMillis: null,
+            snoozedUntilEpochMillis: snoozedUntil,
+            updatedAtEpochMillis: 1,
+          )
+        ],
+      );
+      final repository = TaskRepositoryImpl(store, clock: clock);
+
+      await repository.markDone('task-done', isDone: true);
+      final task = (await repository.getTasks()).single;
+
+      expect(task.snoozedUntilEpochMillis, isNull);
+    });
+
+    test('undo markDone keeps snoozedUntil cleared', () async {
+      final dueAt = DateTime(2026, 2, 15, 10).millisecondsSinceEpoch;
+      final store = InMemoryTaskStore(
+        clock: clock,
+        seedTasks: <Task>[
+          Task(
+            id: 'task-undo',
+            title: 'Task Undo',
+            createdAtEpochMillis: DateTime(2026, 2, 15, 8).millisecondsSinceEpoch,
+            dueAtEpochMillis: dueAt,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.medium,
+            category: TaskCategory.work,
+            isDone: false,
+            completedAtEpochMillis: null,
+            snoozedUntilEpochMillis: DateTime(
+              2026,
+              2,
+              15,
+              9,
+              15,
+            ).millisecondsSinceEpoch,
+            updatedAtEpochMillis: 1,
+          )
+        ],
+      );
+      final repository = TaskRepositoryImpl(store, clock: clock);
+
+      await repository.markDone('task-undo', isDone: true);
+      await repository.markDone('task-undo', isDone: false);
+      final task = (await repository.getTasks()).single;
+
+      expect(task.snoozedUntilEpochMillis, isNull);
+      expect(task.dueAtEpochMillis, dueAt);
+    });
+
+    test('repeat roll-forward can clear snooze metadata via copyWith', () {
+      final task = Task(
+        id: 'task-repeat',
+        title: 'Task Repeat',
+        createdAtEpochMillis: DateTime(2026, 2, 12, 8).millisecondsSinceEpoch,
+        dueAtEpochMillis: DateTime(2026, 2, 13, 8).millisecondsSinceEpoch,
+        repeatRule: RepeatRule.daily,
+        priority: TaskPriority.medium,
+        category: TaskCategory.work,
+        isDone: false,
+        completedAtEpochMillis: null,
+        snoozedUntilEpochMillis: DateTime(2026, 2, 13, 9).millisecondsSinceEpoch,
+        updatedAtEpochMillis: 1,
+      );
+
+      final rolled = task.copyWith(
+        dueAtEpochMillis: DateTime(2026, 2, 14, 8).millisecondsSinceEpoch,
+        clearSnoozedUntilEpochMillis: true,
+      );
+
+      expect(rolled.snoozedUntilEpochMillis, isNull);
     });
 
     test('cleanup removes completed tasks older than 14 days', () async {

@@ -16,7 +16,11 @@ class MarkDoneUseCase {
         return;
       }
       await _scheduler.schedule(
-        task.copyWith(isDone: false, clearCompletedAtEpochMillis: true),
+        task.copyWith(
+          isDone: false,
+          clearCompletedAtEpochMillis: true,
+          clearSnoozedUntilEpochMillis: true,
+        ),
       );
     } catch (_) {
       // Persisting task status is the primary operation.
