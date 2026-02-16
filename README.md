@@ -55,9 +55,29 @@ Kamu juga bisa mencoba aplikasi langsung dari file rilis (tanpa install Flutter)
 4. Install/jalankan file:
    - Android: install file `.apk`
 
-### Tips Memilih File Release
+### Panduan Memilih APK Android
 
-- Pilih file yang sesuai dengan platform.
+Jika kamu **tidak yakin ABI/arsitektur device**, download versi universal:
+
+- `OiKerjain-v1.0.0.apk` (Recommended)
+
+Jika kamu tahu ABI device kamu, pilih APK spesifik berikut:
+
+- `OiKerjain-v1.0.0-arm64-v8a.apk`  
+  untuk hampir semua HP Android modern (64-bit ARM).
+- `OiKerjain-v1.0.0-armeabi-v7a.apk`  
+  untuk HP Android lama (32-bit ARM).
+- `OiKerjain-v1.0.0-x86_64.apk`  
+  untuk emulator Android/Chromebook/perangkat x86_64.
+
+Catatan:
+
+- Build split-per-ABI menghasilkan file setara:
+  - `app-arm64-v8a-release.apk`
+  - `app-armeabi-v7a-release.apk`
+  - `app-x86_64-release.apk`
+- Kalau salah pilih ABI, aplikasi biasanya gagal terpasang.  
+  Solusi paling aman: pakai `OiKerjain-v1.0.0.apk` (universal).
 - Jika SmartScreen/antivirus memberi peringatan, pastikan file diunduh dari halaman release resmi di atas.
 
 ### Jika Belum Ada Asset Release
