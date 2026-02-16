@@ -23,7 +23,9 @@ class HomePage extends ConsumerWidget {
     final state = ref.watch(homeControllerProvider);
     final controller = ref.read(homeControllerProvider.notifier);
     final now = ref.watch(clockProvider).now();
-    final visibleTasks = state.visibleTasks();
+    final visibleTasks = state.visibleTasks(
+      nowEpochMillis: now.millisecondsSinceEpoch,
+    );
     final scheduleSignature = visibleTasks
         .map(
           (task) =>
@@ -38,6 +40,12 @@ class HomePage extends ConsumerWidget {
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.25),
+        sheetAnimationStyle: const AnimationStyle(
+          curve: Curves.easeOutCubic,
+          duration: Duration(milliseconds: 460),
+          reverseCurve: Curves.easeInCubic,
+          reverseDuration: Duration(milliseconds: 340),
+        ),
         builder: (_) => EditPage(task: task),
       );
 
@@ -221,72 +229,39 @@ class HomePage extends ConsumerWidget {
                                                 ),
                                                 direction:
                                                     DismissDirection.horizontal,
-                                                confirmDismiss:
-                                                    (direction) async {
-                                                      if (direction ==
-                                                          DismissDirection
-                                                              .startToEnd) {
-                                                        await openTaskSheet(
-                                                          task: task,
-                                                        );
-                                                        return false;
-                                                      }
+                                                confirmDismiss: (direction) async {
+                                                  if (direction ==
+                                                      DismissDirection
+                                                          .startToEnd) {
+                                                    await openTaskSheet(
+                                                      task: task,
+                                                    );
+                                                    return false;
+                                                  }
 
-                                                      final shouldDelete =
-                                                          await showDialog<bool>(
-                                                            context: context,
-                                                            builder: (
-                                                              dialogContext,
-                                                            ) {
-                                                              return AlertDialog(
-                                                                title:
-                                                                    const Text(
-                                                                      'Hapus tugas?',
-                                                                    ),
-                                                                content: Text(
-                                                                  'Tugas "${task.title}" akan dihapus.',
-                                                                ),
-                                                                actions: <Widget>[
-                                                                  TextButton(
-                                                                    onPressed: () {
-                                                                      Navigator.of(
-                                                                        dialogContext,
-                                                                      ).pop(
-                                                                        false,
-                                                                      );
-                                                                    },
-                                                                    child:
-                                                                        const Text(
-                                                                          'Batal',
-                                                                        ),
-                                                                  ),
-                                                                  TextButton(
-                                                                    onPressed: () {
-                                                                      Navigator.of(
-                                                                        dialogContext,
-                                                                      ).pop(
-                                                                        true,
-                                                                      );
-                                                                    },
-                                                                    child:
-                                                                        const Text(
-                                                                          'Hapus',
-                                                                        ),
-                                                                  ),
-                                                                ],
-                                                              );
-                                                            },
+                                                  final shouldDelete =
+                                                      await showDialog<bool>(
+                                                        context: context,
+                                                        barrierColor: Colors
+                                                            .black
+                                                            .withValues(
+                                                              alpha: 0.25,
+                                                            ),
+                                                        builder: (_) {
+                                                          return _DeleteTaskDialog(
+                                                            taskTitle:
+                                                                task.title,
                                                           );
+                                                        },
+                                                      );
 
-                                                      if (shouldDelete ==
-                                                          true) {
-                                                        await controller
-                                                            .deleteTask(
-                                                              task.id,
-                                                            );
-                                                      }
-                                                      return false;
-                                                    },
+                                                  if (shouldDelete == true) {
+                                                    await controller.deleteTask(
+                                                      task.id,
+                                                    );
+                                                  }
+                                                  return false;
+                                                },
                                                 background: _SwipeBackground(
                                                   icon: Icons.edit_rounded,
                                                   alignment:
@@ -379,6 +354,92 @@ class HomePage extends ConsumerWidget {
   }
 }
 
+class _DeleteTaskDialog extends StatelessWidget {
+  const _DeleteTaskDialog({required this.taskTitle});
+
+  final String taskTitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedTitle = taskTitle.trim();
+    final titlePreview = trimmedTitle.isEmpty ? '(tanpa judul)' : trimmedTitle;
+
+    return Dialog(
+      key: const Key('delete-task-dialog'),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 22),
+      child: NeuSurface(
+        radius: 24,
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                NeuSurface(
+                  pressed: true,
+                  radius: 12,
+                  padding: const EdgeInsets.all(8),
+                  child: const Icon(
+                    Icons.delete_rounded,
+                    color: Colors.redAccent,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Hapus tugas?',
+                  style: UITypography.bodyStrong.copyWith(fontSize: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            NeuSurface(
+              pressed: true,
+              radius: 12,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Text(
+                'Tugas "$titlePreview" akan dihapus.',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: UITypography.body.copyWith(color: UIPalette.textMuted),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: NeuButton(
+                    key: const Key('delete-task-cancel-button'),
+                    onTap: () => Navigator.of(context).pop(false),
+                    radius: 12,
+                    height: 40,
+                    child: const Text('Batal'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: NeuButton(
+                    key: const Key('delete-task-confirm-button'),
+                    onTap: () => Navigator.of(context).pop(true),
+                    active: true,
+                    foregroundColor: Colors.redAccent,
+                    radius: 12,
+                    height: 40,
+                    child: const Text('Hapus'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SmoothScheduleTransition extends StatefulWidget {
   const _SmoothScheduleTransition({
     required this.signature,
@@ -407,12 +468,7 @@ class _SmoothScheduleTransitionState extends State<_SmoothScheduleTransition>
   late final Animation<Offset> _slide = Tween<Offset>(
     begin: const Offset(0, 0.012),
     end: Offset.zero,
-  ).animate(
-    CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOutCubic,
-    ),
-  );
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic));
 
   @override
   void didUpdateWidget(covariant _SmoothScheduleTransition oldWidget) {
@@ -432,10 +488,7 @@ class _SmoothScheduleTransitionState extends State<_SmoothScheduleTransition>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _fade,
-      child: SlideTransition(
-        position: _slide,
-        child: widget.child,
-      ),
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
@@ -582,11 +635,10 @@ class _DashboardControlUnit extends StatelessWidget {
                   return FadeTransition(
                     opacity: animation,
                     child: SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0, 0.025),
-                            end: Offset.zero,
-                          ).animate(animation),
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.025),
+                        end: Offset.zero,
+                      ).animate(animation),
                       child: child,
                     ),
                   );
@@ -621,11 +673,10 @@ class _DashboardControlUnit extends StatelessWidget {
                         return FadeTransition(
                           opacity: animation,
                           child: SlideTransition(
-                            position:
-                                Tween<Offset>(
-                                  begin: const Offset(0.008, 0.02),
-                                  end: Offset.zero,
-                                ).animate(animation),
+                            position: Tween<Offset>(
+                              begin: const Offset(0.008, 0.02),
+                              end: Offset.zero,
+                            ).animate(animation),
                             child: child,
                           ),
                         );
@@ -691,11 +742,10 @@ class _DashboardControlUnit extends StatelessWidget {
                   return FadeTransition(
                     opacity: animation,
                     child: SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(0, 0.015),
-                            end: Offset.zero,
-                          ).animate(animation),
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.015),
+                        end: Offset.zero,
+                      ).animate(animation),
                       child: child,
                     ),
                   );

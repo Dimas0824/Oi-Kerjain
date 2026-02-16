@@ -123,5 +123,89 @@ void main() {
 
       expect(critical?.id, 'work-high');
     });
+
+    test(
+      'visibleTasks keeps done items at bottom with 14-day history only',
+      () async {
+        final now = clock.now();
+        final tasks = <Task>[
+          Task(
+            id: 'pending-low',
+            title: 'Pending Low',
+            dueAtEpochMillis: now
+                .add(const Duration(hours: 8))
+                .millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.low,
+            category: TaskCategory.work,
+            isDone: false,
+            updatedAtEpochMillis: now.millisecondsSinceEpoch - 1000,
+          ),
+          Task(
+            id: 'pending-high-near',
+            title: 'Pending High Near',
+            dueAtEpochMillis: now
+                .add(const Duration(hours: 1))
+                .millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.high,
+            category: TaskCategory.work,
+            isDone: false,
+            updatedAtEpochMillis: now.millisecondsSinceEpoch - 2000,
+          ),
+          Task(
+            id: 'done-recent',
+            title: 'Done Recent',
+            dueAtEpochMillis: now
+                .subtract(const Duration(days: 1))
+                .millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.high,
+            category: TaskCategory.work,
+            isDone: true,
+            updatedAtEpochMillis: now
+                .subtract(const Duration(days: 3))
+                .millisecondsSinceEpoch,
+          ),
+          Task(
+            id: 'done-old',
+            title: 'Done Old',
+            dueAtEpochMillis: now
+                .subtract(const Duration(days: 20))
+                .millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.high,
+            category: TaskCategory.work,
+            isDone: true,
+            updatedAtEpochMillis: now
+                .subtract(const Duration(days: 16))
+                .millisecondsSinceEpoch,
+          ),
+        ];
+
+        final repository = TaskRepositoryImpl(
+          InMemoryTaskStore(clock: clock, seedTasks: tasks),
+          clock: clock,
+        );
+
+        final controller = HomeController(
+          getTasks: GetTasksUseCase(repository),
+          markDone: MarkDoneUseCase(repository, FakeReminderScheduler()),
+          deleteTask: DeleteTaskUseCase(repository, FakeReminderScheduler()),
+          clock: clock,
+        );
+        addTearDown(controller.dispose);
+
+        await controller.refresh();
+
+        expect(
+          controller.state
+              .visibleTasks(nowEpochMillis: now.millisecondsSinceEpoch)
+              .map((task) => task.id)
+              .toList(),
+          <String>['pending-high-near', 'pending-low', 'done-recent'],
+        );
+      },
+    );
   });
 }

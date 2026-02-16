@@ -121,7 +121,7 @@ void main() {
       find.byKey(const Key('fab-add-task')),
       warnIfMissed: false,
     );
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 700));
 
     await tester.enterText(
       find.byKey(const Key('task-title-input')),
@@ -157,7 +157,7 @@ void main() {
       const Offset(900, 0),
       1400,
     );
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.byKey(const Key('task-title-input')), findsOneWidget);
   });
@@ -186,12 +186,8 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.byType(AlertDialog), findsOneWidget);
-    final deleteConfirmButton = find.descendant(
-      of: find.byType(AlertDialog),
-      matching: find.text('Hapus'),
-    );
-    await tester.tap(deleteConfirmButton);
+    expect(find.byKey(const Key('delete-task-dialog')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('delete-task-confirm-button')));
     await tester.pump(const Duration(milliseconds: 700));
 
     expect(find.byKey(const Key('task-card-task-delete')), findsNothing);
