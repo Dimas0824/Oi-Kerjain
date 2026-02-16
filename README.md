@@ -59,15 +59,15 @@ Kamu juga bisa mencoba aplikasi langsung dari file rilis (tanpa install Flutter)
 
 Jika kamu **tidak yakin ABI/arsitektur device**, download versi universal:
 
-- `OiKerjain-v1.0.0.apk` (Recommended)
+- `OiKerjain-v1.0.1.apk` (Recommended)
 
 Jika kamu tahu ABI device kamu, pilih APK spesifik berikut:
 
-- `OiKerjain-v1.0.0-arm64-v8a.apk`  
+- `OiKerjain-v1.0.1-arm64-v8a.apk`  
   untuk hampir semua HP Android modern (64-bit ARM).
-- `OiKerjain-v1.0.0-armeabi-v7a.apk`  
+- `OiKerjain-v1.0.1-armeabi-v7a.apk`  
   untuk HP Android lama (32-bit ARM).
-- `OiKerjain-v1.0.0-x86_64.apk`  
+- `OiKerjain-v1.0.1-x86_64.apk`  
   untuk emulator Android/Chromebook/perangkat x86_64.
 
 Catatan:
@@ -77,7 +77,7 @@ Catatan:
   - `app-armeabi-v7a-release.apk`
   - `app-x86_64-release.apk`
 - Kalau salah pilih ABI, aplikasi biasanya gagal terpasang.  
-  Solusi paling aman: pakai `OiKerjain-v1.0.0.apk` (universal).
+  Solusi paling aman: pakai `OiKerjain-v1.0.1.apk` (universal).
 - Jika SmartScreen/antivirus memberi peringatan, pastikan file diunduh dari halaman release resmi di atas.
 
 ### Jika Belum Ada Asset Release
