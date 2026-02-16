@@ -78,6 +78,7 @@ void main() {
     expect(find.byKey(const Key('search-input')), findsOneWidget);
     expect(find.byKey(const Key('nav-active-tab')), findsOneWidget);
     expect(find.byKey(const Key('nav-history-tab')), findsOneWidget);
+    expect(find.byKey(const Key('nav-add-button')), findsOneWidget);
   });
 
   testWidgets('category filter can be tapped', (tester) async {
@@ -142,9 +143,9 @@ void main() {
   testWidgets('add flow from active tab bottom sheet creates task', (tester) async {
     await pumpHome(tester);
 
-    await tester.ensureVisible(find.byKey(const Key('fab-add-task')));
+    await tester.ensureVisible(find.byKey(const Key('nav-add-button')));
     await tester.tap(
-      find.byKey(const Key('fab-add-task')),
+      find.byKey(const Key('nav-add-button')),
       warnIfMissed: false,
     );
     await tester.pump(const Duration(milliseconds: 700));
@@ -162,6 +163,24 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.text('Task From Widget Test'), findsOneWidget);
+  });
+
+  testWidgets('add flow from history tab opens sheet without switching tabs', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+
+    await tester.tap(find.byKey(const Key('nav-history-tab')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Riwayat tugas'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('nav-add-button')));
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byKey(const Key('task-title-input')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Riwayat tugas'), findsOneWidget);
   });
 
   testWidgets('swipe right on active task opens edit sheet', (tester) async {
