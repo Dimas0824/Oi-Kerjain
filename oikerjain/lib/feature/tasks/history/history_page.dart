@@ -9,7 +9,7 @@ import '../../../model/task.dart';
 import '../components/neu_button.dart';
 import '../components/neu_surface.dart';
 import '../home/widgets/delete_task_dialog.dart';
-import 'widgets/history_date_card.dart';
+import 'widgets/history_custom_range_sheet.dart';
 import 'widgets/history_group_section.dart';
 
 class HistoryPage extends ConsumerWidget {
@@ -24,18 +24,53 @@ class HistoryPage extends ConsumerWidget {
     final now = ref.watch(clockProvider).now();
     final groups = _groupTasksByCreatedAt(state.tasks);
 
-    Future<void> pickDateRange() async {
-      final initialRange = _resolveInitialRange(now, state.startDate, state.endDate);
-      final picked = await showDateRangePicker(
-        context: context,
-        firstDate: DateTime(now.year - 10, 1, 1),
-        lastDate: DateTime(now.year + 10, 12, 31),
-        initialDateRange: initialRange,
+    Future<void> openCustomRangeSheet() async {
+      final firstDate = DateTime(now.year - 10, 1, 1);
+      final lastDate = DateTime(now.year + 10, 12, 31);
+      final initialStart = state.isCustomActive
+          ? state.customStartDate!
+          : state.weekStartDate;
+      final initialEnd = state.isCustomActive
+          ? state.customEndDate!
+          : state.weekEndDate;
+      final clampedStart = _clampDate(
+        initialStart,
+        firstDate: firstDate,
+        lastDate: lastDate,
       );
-      if (picked == null) {
+      final clampedEnd = _clampDate(
+        initialEnd,
+        firstDate: firstDate,
+        lastDate: lastDate,
+      );
+
+      final result = await showModalBottomSheet<HistoryRangeSheetResult>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => HistoryCustomRangeSheet(
+          initialStartDate: clampedStart,
+          initialEndDate: clampedEnd,
+          firstDate: firstDate,
+          lastDate: lastDate,
+        ),
+      );
+      if (result == null) {
         return;
       }
-      await controller.setDateRange(start: picked.start, end: picked.end);
+
+      if (result.action == HistoryRangeSheetAction.reset) {
+        await controller.resetToCurrentWeek();
+        return;
+      }
+
+      final start = result.startDate;
+      final end = result.endDate;
+      if (start == null || end == null) {
+        return;
+      }
+
+      await controller.setDateRange(start: start, end: end);
     }
 
     return SafeArea(
@@ -59,60 +94,98 @@ class HistoryPage extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            HistoryDateCard(date: now),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: NeuSurface(
-                                pressed: true,
-                                radius: 16,
-                                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    const Text(
-                                      'Filter tanggal',
-                                      style: UITypography.sectionLabel,
-                                    ),
-                                    const SizedBox(height: 6),
+                        NeuSurface(
+                          key: const Key('history-week-filter-card'),
+                          pressed: true,
+                          radius: 16,
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  const Text(
+                                    'Senin - Minggu',
+                                    style: UITypography.sectionLabel,
+                                  ),
+                                  const Spacer(),
+                                  if (state.isCustomActive)
                                     Text(
-                                      _filterSummary(state.startDate, state.endDate),
-                                      style: UITypography.captionStrong,
+                                      'Custom aktif',
+                                      style: UITypography.micro.copyWith(
+                                        color: UIPalette.accent,
+                                      ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: NeuButton(
-                                            key: const Key('history-date-range-button'),
-                                            radius: 10,
-                                            height: 34,
-                                            onTap: pickDateRange,
-                                            child: const Text('Pilih rentang'),
-                                          ),
-                                        ),
-                                        if (state.hasDateFilter) ...<Widget>[
-                                          const SizedBox(width: 8),
-                                          NeuButton(
-                                            key: const Key('history-clear-filter-button'),
-                                            radius: 10,
-                                            height: 34,
-                                            onTap: controller.clearDateRange,
-                                            child: const Icon(
-                                              Icons.close_rounded,
-                                              size: 18,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 6),
+                              Text(
+                                _compactDateRange(
+                                  state.weekStartDate,
+                                  state.weekEndDate,
+                                ),
+                                style: UITypography.bodyStrong,
+                              ),
+                              if (state.isCustomActive) ...<Widget>[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Range custom: ${_compactDateRange(state.customStartDate!, state.customEndDate!)}',
+                                  style: UITypography.captionStrong,
+                                ),
+                              ],
+                              const SizedBox(height: 10),
+                              Row(
+                                children: <Widget>[
+                                  SizedBox(
+                                    width: 44,
+                                    child: NeuButton(
+                                      key: const Key('history-week-prev-button'),
+                                      radius: 10,
+                                      height: 34,
+                                      onTap: () {
+                                        controller.showPreviousWeek();
+                                      },
+                                      child: const Icon(
+                                        Icons.chevron_left_rounded,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: NeuButton(
+                                      key: const Key('history-custom-range-button'),
+                                      radius: 10,
+                                      height: 34,
+                                      active: state.isCustomActive,
+                                      onTap: openCustomRangeSheet,
+                                      child: Text(
+                                        state.isCustomActive
+                                            ? 'Ubah custom'
+                                            : 'Pilih custom',
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 44,
+                                    child: NeuButton(
+                                      key: const Key('history-week-next-button'),
+                                      radius: 10,
+                                      height: 34,
+                                      onTap: () {
+                                        controller.showNextWeek();
+                                      },
+                                      child: const Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         const Row(
@@ -136,9 +209,9 @@ class HistoryPage extends ConsumerWidget {
                               radius: 18,
                               child: Center(
                                 child: Text(
-                                  state.hasDateFilter
+                                  state.isCustomActive
                                       ? 'Tidak ada riwayat pada rentang ini.'
-                                      : 'Belum ada riwayat tugas.',
+                                      : 'Tidak ada riwayat pada minggu ini.',
                                   style: UITypography.captionStrong,
                                 ),
                               ),
@@ -196,30 +269,52 @@ class HistoryPage extends ConsumerWidget {
     );
   }
 
-  DateTimeRange _resolveInitialRange(
-    DateTime now,
-    DateTime? startDate,
-    DateTime? endDate,
-  ) {
-    if (startDate != null && endDate != null) {
-      return DateTimeRange(
-        start: DateTime(startDate.year, startDate.month, startDate.day),
-        end: DateTime(endDate.year, endDate.month, endDate.day),
-      );
+  String _compactDateRange(DateTime startDate, DateTime endDate) {
+    final normalizedStart = DateTime(
+      startDate.year,
+      startDate.month,
+      startDate.day,
+    );
+    final normalizedEnd = DateTime(endDate.year, endDate.month, endDate.day);
+
+    if (normalizedStart.year == normalizedEnd.year &&
+        normalizedStart.month == normalizedEnd.month) {
+      return '${normalizedStart.day}-${normalizedEnd.day} ${_monthShortName(normalizedStart.month)} ${normalizedStart.year}';
     }
 
-    final normalizedNow = DateTime(now.year, now.month, now.day);
-    return DateTimeRange(
-      start: normalizedNow.subtract(const Duration(days: 6)),
-      end: normalizedNow,
-    );
+    if (normalizedStart.year == normalizedEnd.year) {
+      return '${normalizedStart.day} ${_monthShortName(normalizedStart.month)} - '
+          '${normalizedEnd.day} ${_monthShortName(normalizedEnd.month)} ${normalizedStart.year}';
+    }
+
+    return '${normalizedStart.day} ${_monthShortName(normalizedStart.month)} ${normalizedStart.year} - '
+        '${normalizedEnd.day} ${_monthShortName(normalizedEnd.month)} ${normalizedEnd.year}';
   }
 
-  String _filterSummary(DateTime? startDate, DateTime? endDate) {
-    if (startDate == null || endDate == null) {
-      return 'Semua riwayat 14 hari terakhir';
+  String _monthShortName(int month) {
+    final fullName = IndonesianDateFormatter.monthName(month);
+    if (fullName.isEmpty || fullName.length <= 3) {
+      return fullName;
     }
-    return '${IndonesianDateFormatter.fullDate(startDate)} - ${IndonesianDateFormatter.fullDate(endDate)}';
+    return fullName.substring(0, 3);
+  }
+
+  DateTime _clampDate(
+    DateTime value, {
+    required DateTime firstDate,
+    required DateTime lastDate,
+  }) {
+    final normalized = DateTime(value.year, value.month, value.day);
+    final start = DateTime(firstDate.year, firstDate.month, firstDate.day);
+    final end = DateTime(lastDate.year, lastDate.month, lastDate.day);
+
+    if (normalized.isBefore(start)) {
+      return start;
+    }
+    if (normalized.isAfter(end)) {
+      return end;
+    }
+    return normalized;
   }
 
   List<_HistoryGroup> _groupTasksByCreatedAt(List<Task> tasks) {

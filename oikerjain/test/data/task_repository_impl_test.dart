@@ -346,5 +346,82 @@ void main() {
       expect(singleDay.map((task) => task.id), <String>['history-a']);
       expect(twoDays.map((task) => task.id), <String>['history-b', 'history-a']);
     });
+
+    test('getHistoryTasks includes monday start and sunday end boundaries', () async {
+      final store = InMemoryTaskStore(
+        clock: clock,
+        seedTasks: <Task>[
+          Task(
+            id: 'monday-start',
+            title: 'Monday Start',
+            createdAtEpochMillis:
+                DateTime(2026, 2, 9, 0, 0, 0, 0).millisecondsSinceEpoch,
+            dueAtEpochMillis: DateTime(2026, 2, 9, 9).millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.low,
+            category: TaskCategory.personal,
+            isDone: true,
+            completedAtEpochMillis:
+                DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
+            updatedAtEpochMillis:
+                DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
+          ),
+          Task(
+            id: 'sunday-end',
+            title: 'Sunday End',
+            createdAtEpochMillis:
+                DateTime(2026, 2, 15, 23, 59, 59, 999).millisecondsSinceEpoch,
+            dueAtEpochMillis: DateTime(2026, 2, 15, 9).millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.low,
+            category: TaskCategory.personal,
+            isDone: true,
+            completedAtEpochMillis:
+                DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
+            updatedAtEpochMillis:
+                DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
+          ),
+          Task(
+            id: 'before-range',
+            title: 'Before Range',
+            createdAtEpochMillis:
+                DateTime(2026, 2, 8, 23, 59, 59, 999).millisecondsSinceEpoch,
+            dueAtEpochMillis: DateTime(2026, 2, 8, 9).millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.low,
+            category: TaskCategory.personal,
+            isDone: true,
+            completedAtEpochMillis:
+                DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
+            updatedAtEpochMillis:
+                DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
+          ),
+          Task(
+            id: 'after-range',
+            title: 'After Range',
+            createdAtEpochMillis:
+                DateTime(2026, 2, 16, 0, 0, 0, 0).millisecondsSinceEpoch,
+            dueAtEpochMillis: DateTime(2026, 2, 16, 9).millisecondsSinceEpoch,
+            repeatRule: RepeatRule.none,
+            priority: TaskPriority.low,
+            category: TaskCategory.personal,
+            isDone: true,
+            completedAtEpochMillis:
+                DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
+            updatedAtEpochMillis:
+                DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
+          ),
+        ],
+      );
+
+      final repository = TaskRepositoryImpl(store, clock: clock);
+
+      final weekly = await repository.getHistoryTasks(
+        start: DateTime(2026, 2, 9),
+        end: DateTime(2026, 2, 15),
+      );
+
+      expect(weekly.map((task) => task.id), <String>['sunday-end', 'monday-start']);
+    });
   });
 }

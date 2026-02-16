@@ -254,12 +254,58 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Riwayat tugas'), findsOneWidget);
-    expect(find.byKey(const Key('history-date-card')), findsOneWidget);
+    expect(find.byKey(const Key('history-week-filter-card')), findsOneWidget);
+    expect(find.byKey(const Key('history-week-prev-button')), findsOneWidget);
+    expect(find.byKey(const Key('history-week-next-button')), findsOneWidget);
+    expect(find.byKey(const Key('history-custom-range-button')), findsOneWidget);
     expect(find.byKey(const Key('history-task-card-history-1')), findsOneWidget);
     expect(find.byKey(const Key('history-task-card-history-2')), findsOneWidget);
   });
 
-  testWidgets('history filter range updates displayed tasks', (tester) async {
+  testWidgets('history week navigation updates displayed tasks', (tester) async {
+    final seededTasks = <Task>[
+      buildTask(
+        id: 'history-current',
+        title: 'History Current',
+        dueAt: DateTime(2026, 2, 14, 12),
+        createdAt: DateTime(2026, 2, 10, 9),
+        isDone: true,
+        completedAt: DateTime(2026, 2, 14, 18),
+      ),
+      buildTask(
+        id: 'history-prev',
+        title: 'History Prev',
+        dueAt: DateTime(2026, 2, 8, 13),
+        createdAt: DateTime(2026, 2, 3, 10),
+        isDone: true,
+        completedAt: DateTime(2026, 2, 8, 19),
+      ),
+    ];
+
+    await pumpHome(tester, seedTasks: seededTasks);
+
+    await tester.tap(find.byKey(const Key('nav-history-tab')));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const Key('history-task-card-history-current')), findsOneWidget);
+    expect(find.byKey(const Key('history-task-card-history-prev')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('history-week-prev-button')));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const Key('history-task-card-history-current')), findsNothing);
+    expect(find.byKey(const Key('history-task-card-history-prev')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('history-week-next-button')));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const Key('history-task-card-history-current')), findsOneWidget);
+    expect(find.byKey(const Key('history-task-card-history-prev')), findsNothing);
+  });
+
+  testWidgets('history custom range picker apply and reset update displayed tasks', (
+    tester,
+  ) async {
     final seededTasks = <Task>[
       buildTask(
         id: 'history-a',
@@ -279,19 +325,39 @@ void main() {
       ),
     ];
 
-    final container = await pumpHome(tester, seedTasks: seededTasks);
+    await pumpHome(tester, seedTasks: seededTasks);
 
     await tester.tap(find.byKey(const Key('nav-history-tab')));
     await tester.pump(const Duration(milliseconds: 500));
 
-    await container.read(historyControllerProvider.notifier).setDateRange(
-      start: DateTime(2026, 2, 10),
-      end: DateTime(2026, 2, 10),
-    );
+    expect(find.byKey(const Key('history-task-card-history-a')), findsOneWidget);
+    expect(find.byKey(const Key('history-task-card-history-b')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('history-custom-range-button')));
     await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.byKey(const Key('history-range-calendar')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('history-range-start-field')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('10').last);
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.byKey(const Key('history-range-end-field')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('10').last);
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.byKey(const Key('history-range-apply-button')));
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.byKey(const Key('history-task-card-history-a')), findsOneWidget);
     expect(find.byKey(const Key('history-task-card-history-b')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('history-custom-range-button')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.byKey(const Key('history-range-reset-button')));
+    await tester.pump(const Duration(milliseconds: 600));
+
+    expect(find.byKey(const Key('history-task-card-history-a')), findsOneWidget);
+    expect(find.byKey(const Key('history-task-card-history-b')), findsOneWidget);
   });
 
   testWidgets('tap history task opens task detail sheet and does not restore', (

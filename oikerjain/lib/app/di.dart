@@ -150,6 +150,7 @@ final historyControllerProvider =
         getHistoryTasks: ref.watch(getHistoryTasksUseCaseProvider),
         markDone: ref.watch(markDoneUseCaseProvider),
         deleteTask: ref.watch(deleteTaskUseCaseProvider),
+        clock: ref.watch(clockProvider),
       ),
     );
 
