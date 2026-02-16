@@ -58,6 +58,11 @@ void main() {
       expect(dueAt.day, 15);
       expect(dueAt.hour, 12);
       expect(dueAt.minute, 0);
+      expect(
+        tasks.single.createdAtEpochMillis,
+        clock.now().millisecondsSinceEpoch,
+      );
+      expect(tasks.single.completedAtEpochMillis, isNull);
     });
 
     test('dd-mm-yyyy deadline and hour input are accepted', () async {
@@ -141,11 +146,13 @@ void main() {
         id: 'task-123',
         title: 'Old title',
         description: '',
+        createdAtEpochMillis: DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
         dueAtEpochMillis: DateTime(2026, 2, 15, 9).millisecondsSinceEpoch,
         repeatRule: RepeatRule.none,
         priority: TaskPriority.medium,
         category: TaskCategory.work,
         isDone: false,
+        completedAtEpochMillis: null,
         updatedAtEpochMillis: 1,
       );
       final repository = TaskRepositoryImpl(

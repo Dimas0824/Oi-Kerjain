@@ -29,8 +29,6 @@ extension TaskCategoryFilterX on TaskCategoryFilter {
 }
 
 class HomeState {
-  static const Duration doneHistoryWindow = Duration(days: 14);
-
   const HomeState({
     this.tasks = const <Task>[],
     this.filterCategory = TaskCategoryFilter.all,
@@ -58,16 +56,14 @@ class HomeState {
     return ((completedTasks / tasks.length) * 100).round();
   }
 
-  List<Task> visibleTasks({
-    int? nowEpochMillis,
-    Duration historyWindow = doneHistoryWindow,
-  }) {
+  List<Task> visibleTasks() {
     final selectedCategory = filterCategory.category;
     final query = searchQuery.trim().toLowerCase();
-    final currentTime = nowEpochMillis ?? DateTime.now().millisecondsSinceEpoch;
-    final historyCutoff = currentTime - historyWindow.inMilliseconds;
 
     final filtered = tasks.where((task) {
+      if (task.isDone) {
+        return false;
+      }
       final categoryMatch =
           selectedCategory == null || task.category == selectedCategory;
       final textMatch =
@@ -80,18 +76,7 @@ class HomeState {
     final pending = filtered.where((task) => !task.isDone).toList()
       ..sort(_sortPendingTask);
 
-    final doneHistory =
-        filtered
-            .where(
-              (task) =>
-                  task.isDone && task.updatedAtEpochMillis >= historyCutoff,
-            )
-            .toList()
-          ..sort(
-            (a, b) => b.updatedAtEpochMillis.compareTo(a.updatedAtEpochMillis),
-          );
-
-    return <Task>[...pending, ...doneHistory];
+    return pending;
   }
 
   int _sortPendingTask(Task a, Task b) {

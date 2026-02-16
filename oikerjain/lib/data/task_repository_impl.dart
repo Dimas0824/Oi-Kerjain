@@ -5,6 +5,8 @@ import '../model/task_priority.dart';
 import 'local/task_store.dart';
 
 class TaskRepositoryImpl implements TaskRepository {
+  static const Duration _historyRetention = Duration(days: 14);
+
   TaskRepositoryImpl(this._store, {Clock? clock}) : _clock = clock ?? const Clock();
 
   final TaskStore _store;
@@ -12,9 +14,22 @@ class TaskRepositoryImpl implements TaskRepository {
 
   @override
   Future<List<Task>> getTasks() async {
-    final tasks = List<Task>.from(await _store.readAll());
-    tasks.sort(_sortTask);
-    return tasks;
+    final tasks = await _loadAndCleanup();
+    final active = tasks.where((task) => !task.isDone).toList()
+      ..sort(_sortTask);
+    return active;
+  }
+
+  @override
+  Future<List<Task>> getHistoryTasks({DateTime? start, DateTime? end}) async {
+    final tasks = await _loadAndCleanup();
+
+    final history = tasks
+        .where((task) => task.isDone && task.completedAtEpochMillis != null)
+        .where((task) => _isWithinCreatedRange(task, start: start, end: end))
+        .toList()
+      ..sort(_sortHistoryTask);
+    return history;
   }
 
   @override
@@ -48,6 +63,8 @@ class TaskRepositoryImpl implements TaskRepository {
       if (current.id == taskId) {
         tasks[i] = current.copyWith(
           isDone: isDone,
+          completedAtEpochMillis: isDone ? nowMillis : null,
+          clearCompletedAtEpochMillis: !isDone,
           updatedAtEpochMillis: nowMillis,
         );
         break;
@@ -76,6 +93,59 @@ class TaskRepositoryImpl implements TaskRepository {
     await _store.writeAll(tasks);
   }
 
+  @override
+  Future<void> cleanupExpiredHistory() async {
+    await _loadAndCleanup();
+  }
+
+  Future<List<Task>> _loadAndCleanup() async {
+    final nowMillis = _clock.now().millisecondsSinceEpoch;
+    final historyCutoff = nowMillis - _historyRetention.inMilliseconds;
+    final tasks = List<Task>.from(await _store.readAll());
+
+    final cleaned = tasks
+        .where((task) => !_isHistoryExpired(task, historyCutoff))
+        .toList();
+
+    if (cleaned.length != tasks.length) {
+      await _store.writeAll(cleaned);
+    }
+
+    return cleaned;
+  }
+
+  bool _isHistoryExpired(Task task, int historyCutoff) {
+    if (!task.isDone) {
+      return false;
+    }
+
+    final completedAt = task.completedAtEpochMillis;
+    if (completedAt == null) {
+      return false;
+    }
+
+    return completedAt < historyCutoff;
+  }
+
+  bool _isWithinCreatedRange(Task task, {DateTime? start, DateTime? end}) {
+    final createdAt = task.createdAt;
+    if (start != null) {
+      final startOfDay = DateTime(start.year, start.month, start.day);
+      if (createdAt.isBefore(startOfDay)) {
+        return false;
+      }
+    }
+
+    if (end != null) {
+      final endOfDay = DateTime(end.year, end.month, end.day, 23, 59, 59, 999);
+      if (createdAt.isAfter(endOfDay)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   int _sortTask(Task a, Task b) {
     final priorityCompare = b.priority.rank.compareTo(a.priority.rank);
     if (priorityCompare != 0) {
@@ -85,6 +155,21 @@ class TaskRepositoryImpl implements TaskRepository {
     final dueCompare = a.dueAtEpochMillis.compareTo(b.dueAtEpochMillis);
     if (dueCompare != 0) {
       return dueCompare;
+    }
+
+    return b.updatedAtEpochMillis.compareTo(a.updatedAtEpochMillis);
+  }
+
+  int _sortHistoryTask(Task a, Task b) {
+    final createdCompare = b.createdAtEpochMillis.compareTo(a.createdAtEpochMillis);
+    if (createdCompare != 0) {
+      return createdCompare;
+    }
+
+    final completedCompare =
+        (b.completedAtEpochMillis ?? 0).compareTo(a.completedAtEpochMillis ?? 0);
+    if (completedCompare != 0) {
+      return completedCompare;
     }
 
     return b.updatedAtEpochMillis.compareTo(a.updatedAtEpochMillis);

@@ -90,11 +90,14 @@ class EditController extends legacy.StateNotifier<EditState> {
         id: source?.id ?? _idGenerator.newId(),
         title: title,
         description: state.description.trim(),
+        createdAtEpochMillis:
+            source?.createdAtEpochMillis ?? now.millisecondsSinceEpoch,
         dueAtEpochMillis: dueAt.millisecondsSinceEpoch,
         repeatRule: state.repeatRule,
         priority: state.priority,
         category: state.category,
         isDone: source?.isDone ?? false,
+        completedAtEpochMillis: source?.completedAtEpochMillis,
         updatedAtEpochMillis: now.millisecondsSinceEpoch,
       );
 

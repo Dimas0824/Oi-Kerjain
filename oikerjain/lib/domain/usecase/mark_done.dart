@@ -15,7 +15,9 @@ class MarkDoneUseCase {
         await _scheduler.cancel(task.id);
         return;
       }
-      await _scheduler.schedule(task.copyWith(isDone: false));
+      await _scheduler.schedule(
+        task.copyWith(isDone: false, clearCompletedAtEpochMillis: true),
+      );
     } catch (_) {
       // Persisting task status is the primary operation.
       // Notification scheduling/cancel failures should not break UI updates.

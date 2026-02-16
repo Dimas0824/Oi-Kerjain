@@ -33,11 +33,13 @@ void main() {
       return Task(
         id: id,
         title: title,
+        createdAtEpochMillis: dueAtMillis,
         dueAtEpochMillis: dueAtMillis,
         repeatRule: RepeatRule.none,
         priority: TaskPriority.medium,
         category: TaskCategory.work,
         isDone: false,
+        completedAtEpochMillis: null,
         updatedAtEpochMillis: dueAtMillis,
       );
     }

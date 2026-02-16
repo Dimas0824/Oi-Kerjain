@@ -15,6 +15,12 @@ Future<void> main() async {
   );
 
   try {
+    await container.read(cleanupExpiredHistoryUseCaseProvider).call();
+  } catch (_) {
+    // Cleanup failures should not block app startup.
+  }
+
+  try {
     await notificationService.init(
       onAction: ({required taskId, required actionId}) {
         return notificationActionHandler(taskId: taskId, actionId: actionId);

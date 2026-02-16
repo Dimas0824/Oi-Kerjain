@@ -17,31 +17,37 @@ void main() {
     final repeatOverdue = Task(
       id: 'repeat-overdue',
       title: 'Repeat Overdue',
+      createdAtEpochMillis: DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
       dueAtEpochMillis: DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
       repeatRule: RepeatRule.daily,
       priority: TaskPriority.high,
       category: TaskCategory.work,
       isDone: false,
+      completedAtEpochMillis: null,
       updatedAtEpochMillis: 1,
     );
     final nonRepeatOverdue = Task(
       id: 'non-repeat-overdue',
       title: 'Non Repeat Overdue',
+      createdAtEpochMillis: DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
       dueAtEpochMillis: DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
       repeatRule: RepeatRule.none,
       priority: TaskPriority.medium,
       category: TaskCategory.work,
       isDone: false,
+      completedAtEpochMillis: null,
       updatedAtEpochMillis: 1,
     );
     final futureTask = Task(
       id: 'future',
       title: 'Future',
+      createdAtEpochMillis: DateTime(2026, 2, 15, 9).millisecondsSinceEpoch,
       dueAtEpochMillis: DateTime(2026, 2, 16, 9).millisecondsSinceEpoch,
       repeatRule: RepeatRule.none,
       priority: TaskPriority.low,
       category: TaskCategory.personal,
       isDone: false,
+      completedAtEpochMillis: null,
       updatedAtEpochMillis: 1,
     );
 

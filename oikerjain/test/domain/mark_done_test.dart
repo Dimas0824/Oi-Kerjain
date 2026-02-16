@@ -18,11 +18,14 @@ void main() {
       final sourceTask = Task(
         id: 'task-mark-done',
         title: 'Task Mark Done',
+        createdAtEpochMillis:
+            DateTime(2026, 2, 16, 9).millisecondsSinceEpoch,
         dueAtEpochMillis: DateTime(2026, 2, 16, 12).millisecondsSinceEpoch,
         repeatRule: RepeatRule.none,
         priority: TaskPriority.medium,
         category: TaskCategory.work,
         isDone: false,
+        completedAtEpochMillis: null,
         updatedAtEpochMillis: 1,
       );
 
@@ -33,9 +36,10 @@ void main() {
       final useCase = MarkDoneUseCase(repository, _ThrowingScheduler());
 
       await useCase(sourceTask, isDone: true);
-      final tasks = await repository.getTasks();
+      final tasks = await repository.getHistoryTasks();
 
       expect(tasks.single.isDone, isTrue);
+      expect(tasks.single.completedAtEpochMillis, isNotNull);
     });
   });
 }

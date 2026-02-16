@@ -14,11 +14,14 @@ void main() {
         id: 'task-1',
         title: 'System Architecture',
         description: 'Define service boundaries',
+        createdAtEpochMillis:
+            DateTime(2026, 2, 15, 9).millisecondsSinceEpoch,
         dueAtEpochMillis: DateTime(2026, 2, 15, 10).millisecondsSinceEpoch,
         repeatRule: RepeatRule.none,
         priority: TaskPriority.high,
         category: TaskCategory.work,
         isDone: false,
+        completedAtEpochMillis: null,
         updatedAtEpochMillis: DateTime(2026, 2, 15, 9).millisecondsSinceEpoch,
       );
     }

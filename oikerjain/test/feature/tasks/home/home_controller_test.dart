@@ -22,32 +22,51 @@ void main() {
         Task(
           id: 'work-high',
           title: 'System Architecture',
+          createdAtEpochMillis: DateTime(2026, 2, 15, 8).millisecondsSinceEpoch,
           dueAtEpochMillis: DateTime(2026, 2, 15, 10).millisecondsSinceEpoch,
           repeatRule: RepeatRule.none,
           priority: TaskPriority.high,
           category: TaskCategory.work,
           isDone: false,
+          completedAtEpochMillis: null,
           updatedAtEpochMillis: 20,
         ),
         Task(
           id: 'personal-mid',
           title: 'Car Service',
+          createdAtEpochMillis: DateTime(2026, 2, 15, 7).millisecondsSinceEpoch,
           dueAtEpochMillis: DateTime(2026, 2, 15, 11).millisecondsSinceEpoch,
           repeatRule: RepeatRule.none,
           priority: TaskPriority.medium,
           category: TaskCategory.personal,
           isDone: false,
+          completedAtEpochMillis: null,
           updatedAtEpochMillis: 10,
         ),
         Task(
           id: 'work-low',
           title: 'Client Workshop',
+          createdAtEpochMillis: DateTime(2026, 2, 14, 12).millisecondsSinceEpoch,
           dueAtEpochMillis: DateTime(2026, 2, 16, 10).millisecondsSinceEpoch,
           repeatRule: RepeatRule.none,
           priority: TaskPriority.low,
           category: TaskCategory.work,
           isDone: false,
+          completedAtEpochMillis: null,
           updatedAtEpochMillis: 5,
+        ),
+        Task(
+          id: 'done-hidden',
+          title: 'Done Hidden',
+          createdAtEpochMillis: DateTime(2026, 2, 13, 9).millisecondsSinceEpoch,
+          dueAtEpochMillis: DateTime(2026, 2, 14, 10).millisecondsSinceEpoch,
+          repeatRule: RepeatRule.none,
+          priority: TaskPriority.medium,
+          category: TaskCategory.work,
+          isDone: true,
+          completedAtEpochMillis:
+              DateTime(2026, 2, 14, 18).millisecondsSinceEpoch,
+          updatedAtEpochMillis: DateTime(2026, 2, 14, 18).millisecondsSinceEpoch,
         ),
       ];
 
@@ -88,17 +107,17 @@ void main() {
       );
     });
 
-    test('toggleStatus marks task done', () async {
+    test('toggleStatus marks task done and removes it from active list', () async {
       final controller = createController();
       addTearDown(controller.dispose);
 
       await controller.refresh();
       await controller.toggleStatus('work-high');
 
-      final updated = controller.state.tasks
-          .where((task) => task.id == 'work-high')
-          .single;
-      expect(updated.isDone, isTrue);
+      expect(
+        controller.state.tasks.map((task) => task.id),
+        isNot(contains('work-high')),
+      );
     });
 
     test('deleteTask removes item', () async {
@@ -124,88 +143,72 @@ void main() {
       expect(critical?.id, 'work-high');
     });
 
-    test(
-      'visibleTasks keeps done items at bottom with 14-day history only',
-      () async {
-        final now = clock.now();
-        final tasks = <Task>[
-          Task(
-            id: 'pending-low',
-            title: 'Pending Low',
-            dueAtEpochMillis: now
-                .add(const Duration(hours: 8))
-                .millisecondsSinceEpoch,
-            repeatRule: RepeatRule.none,
-            priority: TaskPriority.low,
-            category: TaskCategory.work,
-            isDone: false,
-            updatedAtEpochMillis: now.millisecondsSinceEpoch - 1000,
-          ),
-          Task(
-            id: 'pending-high-near',
-            title: 'Pending High Near',
-            dueAtEpochMillis: now
-                .add(const Duration(hours: 1))
-                .millisecondsSinceEpoch,
-            repeatRule: RepeatRule.none,
-            priority: TaskPriority.high,
-            category: TaskCategory.work,
-            isDone: false,
-            updatedAtEpochMillis: now.millisecondsSinceEpoch - 2000,
-          ),
-          Task(
-            id: 'done-recent',
-            title: 'Done Recent',
-            dueAtEpochMillis: now
-                .subtract(const Duration(days: 1))
-                .millisecondsSinceEpoch,
-            repeatRule: RepeatRule.none,
-            priority: TaskPriority.high,
-            category: TaskCategory.work,
-            isDone: true,
-            updatedAtEpochMillis: now
-                .subtract(const Duration(days: 3))
-                .millisecondsSinceEpoch,
-          ),
-          Task(
-            id: 'done-old',
-            title: 'Done Old',
-            dueAtEpochMillis: now
-                .subtract(const Duration(days: 20))
-                .millisecondsSinceEpoch,
-            repeatRule: RepeatRule.none,
-            priority: TaskPriority.high,
-            category: TaskCategory.work,
-            isDone: true,
-            updatedAtEpochMillis: now
-                .subtract(const Duration(days: 16))
-                .millisecondsSinceEpoch,
-          ),
-        ];
+    test('visibleTasks keeps only pending tasks sorted by priority and dueAt', () async {
+      final now = clock.now();
+      final tasks = <Task>[
+        Task(
+          id: 'pending-low',
+          title: 'Pending Low',
+          createdAtEpochMillis: now.millisecondsSinceEpoch,
+          dueAtEpochMillis:
+              now.add(const Duration(hours: 8)).millisecondsSinceEpoch,
+          repeatRule: RepeatRule.none,
+          priority: TaskPriority.low,
+          category: TaskCategory.work,
+          isDone: false,
+          completedAtEpochMillis: null,
+          updatedAtEpochMillis: now.millisecondsSinceEpoch - 1000,
+        ),
+        Task(
+          id: 'pending-high-near',
+          title: 'Pending High Near',
+          createdAtEpochMillis: now.millisecondsSinceEpoch,
+          dueAtEpochMillis:
+              now.add(const Duration(hours: 1)).millisecondsSinceEpoch,
+          repeatRule: RepeatRule.none,
+          priority: TaskPriority.high,
+          category: TaskCategory.work,
+          isDone: false,
+          completedAtEpochMillis: null,
+          updatedAtEpochMillis: now.millisecondsSinceEpoch - 2000,
+        ),
+        Task(
+          id: 'done-recent',
+          title: 'Done Recent',
+          createdAtEpochMillis:
+              now.subtract(const Duration(days: 1)).millisecondsSinceEpoch,
+          dueAtEpochMillis:
+              now.subtract(const Duration(days: 1)).millisecondsSinceEpoch,
+          repeatRule: RepeatRule.none,
+          priority: TaskPriority.high,
+          category: TaskCategory.work,
+          isDone: true,
+          completedAtEpochMillis:
+              now.subtract(const Duration(hours: 2)).millisecondsSinceEpoch,
+          updatedAtEpochMillis:
+              now.subtract(const Duration(hours: 2)).millisecondsSinceEpoch,
+        ),
+      ];
 
-        final repository = TaskRepositoryImpl(
-          InMemoryTaskStore(clock: clock, seedTasks: tasks),
-          clock: clock,
-        );
+      final repository = TaskRepositoryImpl(
+        InMemoryTaskStore(clock: clock, seedTasks: tasks),
+        clock: clock,
+      );
 
-        final controller = HomeController(
-          getTasks: GetTasksUseCase(repository),
-          markDone: MarkDoneUseCase(repository, FakeReminderScheduler()),
-          deleteTask: DeleteTaskUseCase(repository, FakeReminderScheduler()),
-          clock: clock,
-        );
-        addTearDown(controller.dispose);
+      final controller = HomeController(
+        getTasks: GetTasksUseCase(repository),
+        markDone: MarkDoneUseCase(repository, FakeReminderScheduler()),
+        deleteTask: DeleteTaskUseCase(repository, FakeReminderScheduler()),
+        clock: clock,
+      );
+      addTearDown(controller.dispose);
 
-        await controller.refresh();
+      await controller.refresh();
 
-        expect(
-          controller.state
-              .visibleTasks(nowEpochMillis: now.millisecondsSinceEpoch)
-              .map((task) => task.id)
-              .toList(),
-          <String>['pending-high-near', 'pending-low', 'done-recent'],
-        );
-      },
-    );
+      expect(
+        controller.state.visibleTasks().map((task) => task.id).toList(),
+        <String>['pending-high-near', 'pending-low'],
+      );
+    });
   });
 }

@@ -10,9 +10,11 @@ import '../data/local/task_store.dart';
 import '../data/task_repository_impl.dart';
 import '../domain/scheduler/reminder_scheduler.dart';
 import '../domain/task_repository.dart';
+import '../domain/usecase/cleanup_expired_history.dart';
 import '../domain/usecase/compute_next_occurrence.dart';
 import '../domain/usecase/delete_task.dart';
 import '../domain/usecase/get_tasks.dart';
+import '../domain/usecase/get_history_tasks.dart';
 import '../domain/usecase/handle_notification_action.dart';
 import '../domain/usecase/mark_done.dart';
 import '../domain/usecase/reschedule_all.dart';
@@ -20,6 +22,8 @@ import '../domain/usecase/snooze_task.dart';
 import '../domain/usecase/upsert_task.dart';
 import '../feature/tasks/edit/edit_controller.dart';
 import '../feature/tasks/edit/edit_state.dart';
+import '../feature/tasks/history/history_controller.dart';
+import '../feature/tasks/history/history_state.dart';
 import '../feature/tasks/home/home_controller.dart';
 import '../feature/tasks/home/home_state.dart';
 import '../model/task.dart';
@@ -66,6 +70,14 @@ final reminderSchedulerProvider = Provider<ReminderScheduler>(
 
 final getTasksUseCaseProvider = Provider<GetTasksUseCase>(
   (ref) => GetTasksUseCase(ref.watch(taskRepositoryProvider)),
+);
+
+final getHistoryTasksUseCaseProvider = Provider<GetHistoryTasksUseCase>(
+  (ref) => GetHistoryTasksUseCase(ref.watch(taskRepositoryProvider)),
+);
+
+final cleanupExpiredHistoryUseCaseProvider = Provider<CleanupExpiredHistoryUseCase>(
+  (ref) => CleanupExpiredHistoryUseCase(ref.watch(taskRepositoryProvider)),
 );
 
 final upsertTaskUseCaseProvider = Provider<UpsertTaskUseCase>(
@@ -129,6 +141,15 @@ final homeControllerProvider =
         markDone: ref.watch(markDoneUseCaseProvider),
         deleteTask: ref.watch(deleteTaskUseCaseProvider),
         clock: ref.watch(clockProvider),
+      ),
+    );
+
+final historyControllerProvider =
+    legacy.StateNotifierProvider<HistoryController, HistoryState>(
+      (ref) => HistoryController(
+        getHistoryTasks: ref.watch(getHistoryTasksUseCaseProvider),
+        markDone: ref.watch(markDoneUseCaseProvider),
+        deleteTask: ref.watch(deleteTaskUseCaseProvider),
       ),
     );
 
