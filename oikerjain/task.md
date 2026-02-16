@@ -1,6 +1,4 @@
-prompt:
-
-# POS System
+# Task Scheduler System
 
 **Target AI Agent:** GPT-5.3 Codex  
 **Stack Context:** Flutter (Dart)
