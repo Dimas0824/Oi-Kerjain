@@ -248,7 +248,7 @@ void main() {
       );
     });
 
-    test('snoozeTask clamps snoozedUntil to dueAt', () async {
+    test('snoozeTask allows snoozedUntil beyond dueAt', () async {
       final dueAt = DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch;
       final store = InMemoryTaskStore(
         clock: clock,
@@ -272,7 +272,10 @@ void main() {
       await repository.snoozeTask('task-clamp', by: const Duration(hours: 2));
       final task = (await repository.getTasks()).single;
 
-      expect(task.snoozedUntilEpochMillis, dueAt);
+      expect(
+        task.snoozedUntilEpochMillis,
+        clock.now().add(const Duration(hours: 2)).millisecondsSinceEpoch,
+      );
       expect(task.dueAtEpochMillis, dueAt);
     });
 

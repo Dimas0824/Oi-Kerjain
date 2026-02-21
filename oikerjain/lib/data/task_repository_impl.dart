@@ -88,11 +88,8 @@ class TaskRepositoryImpl implements TaskRepository {
       final current = tasks[i];
       if (current.id == taskId) {
         final snoozedUntil = nowMillis + by.inMilliseconds;
-        final clampedSnoozedUntil = snoozedUntil > current.dueAtEpochMillis
-            ? current.dueAtEpochMillis
-            : snoozedUntil;
         tasks[i] = current.copyWith(
-          snoozedUntilEpochMillis: clampedSnoozedUntil,
+          snoozedUntilEpochMillis: snoozedUntil,
           updatedAtEpochMillis: nowMillis,
         );
         break;

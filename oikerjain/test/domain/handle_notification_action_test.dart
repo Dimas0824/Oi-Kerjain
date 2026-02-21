@@ -19,8 +19,9 @@ void main() {
     final clock = FixedClock(DateTime(2026, 2, 15, 9, 0));
 
     HandleNotificationActionUseCase buildUseCase(
-      TaskRepositoryImpl repository,
-    ) {
+      TaskRepositoryImpl repository, {
+      Duration customSnoozeDuration = const Duration(minutes: 60),
+    }) {
       final scheduler = FakeReminderScheduler();
       return HandleNotificationActionUseCase(
         repository,
@@ -29,6 +30,7 @@ void main() {
         UpsertTaskUseCase(repository, scheduler),
         const ComputeNextOccurrenceUseCase(),
         clock: clock,
+        customSnoozeDuration: customSnoozeDuration,
       );
     }
 
@@ -53,7 +55,7 @@ void main() {
       );
     }
 
-    test('SNOOZE_1H sets snoozedUntil without changing dueAt', () async {
+    test('SNOOZE_60M sets snoozedUntil without changing dueAt', () async {
       final sourceTask = buildTask(id: 'task-1', dueAt: DateTime(2026, 2, 15, 12));
       final repository = TaskRepositoryImpl(
         InMemoryTaskStore(clock: clock, seedTasks: <Task>[sourceTask]),
@@ -61,7 +63,7 @@ void main() {
       );
       final useCase = buildUseCase(repository);
 
-      await useCase(taskId: sourceTask.id, actionId: NotificationConst.actionSnooze1h);
+      await useCase(taskId: sourceTask.id, actionId: NotificationConst.actionSnooze60m);
       final task = (await repository.getTasks()).single;
 
       expect(task.dueAtEpochMillis, sourceTask.dueAtEpochMillis);
@@ -71,7 +73,7 @@ void main() {
       );
     });
 
-    test('SNOOZE_4H clamps snooze to dueAt', () async {
+    test('SNOOZE_30M applies 30-minute snooze duration', () async {
       final sourceTask = buildTask(id: 'task-2', dueAt: DateTime(2026, 2, 15, 11));
       final repository = TaskRepositoryImpl(
         InMemoryTaskStore(clock: clock, seedTasks: <Task>[sourceTask]),
@@ -79,30 +81,53 @@ void main() {
       );
       final useCase = buildUseCase(repository);
 
-      await useCase(taskId: sourceTask.id, actionId: NotificationConst.actionSnooze4h);
+      await useCase(taskId: sourceTask.id, actionId: NotificationConst.actionSnooze30m);
       final task = (await repository.getTasks()).single;
 
-      expect(task.snoozedUntilEpochMillis, sourceTask.dueAtEpochMillis);
+      expect(
+        task.snoozedUntilEpochMillis,
+        clock.now().add(const Duration(minutes: 30)).millisecondsSinceEpoch,
+      );
     });
 
-    test('SNOOZE_CUSTOM adds 1 hour', () async {
+    test('SNOOZE_CUSTOM uses configured custom duration', () async {
       final sourceTask = buildTask(id: 'task-3', dueAt: DateTime(2026, 2, 15, 15));
       final repository = TaskRepositoryImpl(
         InMemoryTaskStore(clock: clock, seedTasks: <Task>[sourceTask]),
         clock: clock,
       );
-      final useCase = buildUseCase(repository);
+      final useCase = buildUseCase(
+        repository,
+        customSnoozeDuration: const Duration(minutes: 45),
+      );
 
       await useCase(taskId: sourceTask.id, actionId: NotificationConst.actionSnoozeCustom);
       final task = (await repository.getTasks()).single;
 
       expect(
         task.snoozedUntilEpochMillis,
-        clock.now().add(const Duration(hours: 1)).millisecondsSinceEpoch,
+        clock.now().add(const Duration(minutes: 45)).millisecondsSinceEpoch,
       );
     });
 
-    test('legacy SNOOZE_10M remains supported', () async {
+    test('SNOOZE_CUSTOM_<minutes> supports dynamic custom duration', () async {
+      final sourceTask = buildTask(id: 'task-dynamic-custom', dueAt: DateTime(2026, 2, 15, 15));
+      final repository = TaskRepositoryImpl(
+        InMemoryTaskStore(clock: clock, seedTasks: <Task>[sourceTask]),
+        clock: clock,
+      );
+      final useCase = buildUseCase(repository);
+
+      await useCase(taskId: sourceTask.id, actionId: '${NotificationConst.actionSnoozeCustom}_25');
+      final task = (await repository.getTasks()).single;
+
+      expect(
+        task.snoozedUntilEpochMillis,
+        clock.now().add(const Duration(minutes: 25)).millisecondsSinceEpoch,
+      );
+    });
+
+    test('legacy SNOOZE_4H remains supported', () async {
       final sourceTask = buildTask(id: 'task-4', dueAt: DateTime(2026, 2, 15, 12));
       final repository = TaskRepositoryImpl(
         InMemoryTaskStore(clock: clock, seedTasks: <Task>[sourceTask]),
@@ -112,13 +137,13 @@ void main() {
 
       await useCase(
         taskId: sourceTask.id,
-        actionId: NotificationConst.actionSnooze10mLegacy,
+        actionId: NotificationConst.actionSnooze4hLegacy,
       );
       final task = (await repository.getTasks()).single;
 
       expect(
         task.snoozedUntilEpochMillis,
-        clock.now().add(const Duration(minutes: 10)).millisecondsSinceEpoch,
+        clock.now().add(const Duration(hours: 4)).millisecondsSinceEpoch,
       );
     });
 

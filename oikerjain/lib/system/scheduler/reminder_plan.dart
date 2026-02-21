@@ -5,14 +5,17 @@ import '../../model/task.dart';
 class ReminderPlanBuilder {
   const ReminderPlanBuilder({
     Duration rollingWindow = const Duration(hours: 72),
-    Duration urgentWindow = const Duration(hours: 1),
+    Duration closeDeadlineLead = const Duration(hours: 1),
+    Duration overdueCadence = const Duration(minutes: 30),
     Duration catchUpLead = const Duration(minutes: 1),
   }) : _rollingWindow = rollingWindow,
-       _urgentWindow = urgentWindow,
+       _closeDeadlineLead = closeDeadlineLead,
+       _overdueCadence = overdueCadence,
        _catchUpLead = catchUpLead;
 
   final Duration _rollingWindow;
-  final Duration _urgentWindow;
+  final Duration _closeDeadlineLead;
+  final Duration _overdueCadence;
   final Duration _catchUpLead;
 
   List<ReminderPlanEntry> build({required Task task, required DateTime now}) {
@@ -22,61 +25,48 @@ class ReminderPlanBuilder {
     }
 
     final dueAtEpochMillis = task.dueAtEpochMillis;
-    if (dueAtEpochMillis <= nowMillis) {
-      final snoozedUntil = task.snoozedUntilEpochMillis;
-      return <ReminderPlanEntry>[
-        ReminderPlanEntry(
-          scheduledAtEpochMillis:
-              snoozedUntil != null && snoozedUntil > nowMillis
-              ? snoozedUntil
-              : nowMillis + _catchUpLead.inMilliseconds,
-          isCloseDeadline: true,
-        ),
-      ];
+    final windowEndMillis = nowMillis + _rollingWindow.inMilliseconds;
+    final snoozedUntil = task.snoozedUntilEpochMillis;
+    final notBeforeMillis = math.max(
+      nowMillis + _catchUpLead.inMilliseconds,
+      snoozedUntil != null && snoozedUntil > nowMillis ? snoozedUntil : 0,
+    );
+    final remindersByEpoch = <int, ReminderKind>{};
+
+    if (dueAtEpochMillis > nowMillis) {
+      final closeReminderAt =
+          dueAtEpochMillis - _closeDeadlineLead.inMilliseconds;
+      final scheduledCloseReminder = math.max(
+        closeReminderAt > nowMillis
+            ? closeReminderAt
+            : nowMillis + _catchUpLead.inMilliseconds,
+        notBeforeMillis,
+      );
+
+      if (scheduledCloseReminder < dueAtEpochMillis &&
+          scheduledCloseReminder <= windowEndMillis) {
+        remindersByEpoch[scheduledCloseReminder] = ReminderKind.closeDeadline;
+      }
     }
 
-    final windowEndMillis = math.min(
-      dueAtEpochMillis,
-      nowMillis + _rollingWindow.inMilliseconds,
-    );
-    final reminderEpochs = <int>{};
-    var cursorMillis = nowMillis;
-
-    while (true) {
-      final nextReminder = _nextReminderEpochMillis(
-        cursorEpochMillis: cursorMillis,
+    if (dueAtEpochMillis <= windowEndMillis) {
+      final firstOverdueReminder = _resolveFirstOverdueEpochMillis(
         dueAtEpochMillis: dueAtEpochMillis,
+        minEpochMillis: notBeforeMillis,
       );
-      if (nextReminder > windowEndMillis) {
-        break;
-      }
-      reminderEpochs.add(nextReminder);
-      cursorMillis = nextReminder;
-      if (cursorMillis >= dueAtEpochMillis) {
-        break;
-      }
-    }
 
-    reminderEpochs.add(dueAtEpochMillis);
-    _applySnoozeWindow(
-      reminderEpochs: reminderEpochs,
-      task: task,
-      nowMillis: nowMillis,
-      windowEndMillis: windowEndMillis,
-    );
-    if (_shouldAddCatchUpReminder(task: task, nowMillis: nowMillis)) {
-      reminderEpochs.add(
-        math.min(nowMillis + _catchUpLead.inMilliseconds, dueAtEpochMillis),
-      );
+      for (
+        var cursorMillis = firstOverdueReminder;
+        cursorMillis <= windowEndMillis;
+        cursorMillis += _overdueCadence.inMilliseconds
+      ) {
+        remindersByEpoch[cursorMillis] = ReminderKind.overdue;
+      }
     }
 
     final sorted =
-        reminderEpochs
-            .where(
-              (epoch) =>
-                  epoch > nowMillis &&
-                  (epoch <= windowEndMillis || epoch == dueAtEpochMillis),
-            )
+        remindersByEpoch.keys
+            .where((epoch) => epoch > nowMillis)
             .toList()
           ..sort();
 
@@ -84,98 +74,88 @@ class ReminderPlanBuilder {
         .map(
           (scheduledAtEpochMillis) => ReminderPlanEntry(
             scheduledAtEpochMillis: scheduledAtEpochMillis,
-            isCloseDeadline: _isCloseDeadline(
-              scheduledAtEpochMillis: scheduledAtEpochMillis,
-              dueAtEpochMillis: dueAtEpochMillis,
-            ),
+            kind: remindersByEpoch[scheduledAtEpochMillis]!,
           ),
         )
         .toList();
   }
 
-  int _nextReminderEpochMillis({
-    required int cursorEpochMillis,
-    required int dueAtEpochMillis,
+  UpcomingSummaryPlan? buildUpcomingSummary({
+    required List<Task> tasks,
+    required DateTime now,
   }) {
-    final remaining = Duration(
-      milliseconds: dueAtEpochMillis - cursorEpochMillis,
+    final nowMillis = now.millisecondsSinceEpoch;
+    final closeDeadlineBoundary =
+        nowMillis + _closeDeadlineLead.inMilliseconds;
+    final summaryWindowEnd = nowMillis + _rollingWindow.inMilliseconds;
+
+    final eligibleTasks =
+        tasks.where((task) {
+            if (task.isDone) {
+              return false;
+            }
+
+            if (task.dueAtEpochMillis <= closeDeadlineBoundary ||
+                task.dueAtEpochMillis > summaryWindowEnd) {
+              return false;
+            }
+
+            final snoozedUntil = task.snoozedUntilEpochMillis;
+            if (snoozedUntil != null && snoozedUntil > nowMillis) {
+              return false;
+            }
+
+            return true;
+          }).toList()
+          ..sort((a, b) => a.dueAtEpochMillis.compareTo(b.dueAtEpochMillis));
+
+    if (eligibleTasks.isEmpty) {
+      return null;
+    }
+
+    return UpcomingSummaryPlan(
+      scheduledAtEpochMillis: nowMillis + _catchUpLead.inMilliseconds,
+      taskIds: eligibleTasks.map((task) => task.id).toList(growable: false),
     );
-
-    if (remaining <= const Duration(days: 1) ||
-        _isSameLocalDay(
-          cursorEpochMillis: cursorEpochMillis,
-          dueAtEpochMillis: dueAtEpochMillis,
-        )) {
-      return cursorEpochMillis + const Duration(hours: 1).inMilliseconds;
-    }
-
-    if (remaining <= const Duration(days: 3)) {
-      return cursorEpochMillis + const Duration(hours: 12).inMilliseconds;
-    }
-
-    return cursorEpochMillis + const Duration(days: 1).inMilliseconds;
   }
 
-  void _applySnoozeWindow({
-    required Set<int> reminderEpochs,
-    required Task task,
-    required int nowMillis,
-    required int windowEndMillis,
-  }) {
-    final snoozedUntil = task.snoozedUntilEpochMillis;
-    if (snoozedUntil == null || snoozedUntil <= nowMillis) {
-      return;
-    }
-
-    final snoozedAt = math.min(snoozedUntil, task.dueAtEpochMillis);
-    reminderEpochs.removeWhere((epoch) => epoch < snoozedAt);
-    if (snoozedAt <= windowEndMillis) {
-      reminderEpochs.add(snoozedAt);
-    }
-  }
-
-  bool _isCloseDeadline({
-    required int scheduledAtEpochMillis,
+  int _resolveFirstOverdueEpochMillis({
     required int dueAtEpochMillis,
+    required int minEpochMillis,
   }) {
-    final remaining = Duration(
-      milliseconds: dueAtEpochMillis - scheduledAtEpochMillis,
-    );
-    return remaining <= const Duration(days: 1) ||
-        _isSameLocalDay(
-          cursorEpochMillis: scheduledAtEpochMillis,
-          dueAtEpochMillis: dueAtEpochMillis,
-        );
-  }
-
-  bool _shouldAddCatchUpReminder({required Task task, required int nowMillis}) {
-    final snoozedUntil = task.snoozedUntilEpochMillis;
-    if (snoozedUntil != null && snoozedUntil > nowMillis) {
-      return false;
+    if (minEpochMillis <= dueAtEpochMillis) {
+      return dueAtEpochMillis;
     }
 
-    final remaining = Duration(milliseconds: task.dueAtEpochMillis - nowMillis);
-    return remaining <= _urgentWindow;
-  }
-
-  bool _isSameLocalDay({
-    required int cursorEpochMillis,
-    required int dueAtEpochMillis,
-  }) {
-    final cursor = DateTime.fromMillisecondsSinceEpoch(cursorEpochMillis);
-    final dueAt = DateTime.fromMillisecondsSinceEpoch(dueAtEpochMillis);
-    return cursor.year == dueAt.year &&
-        cursor.month == dueAt.month &&
-        cursor.day == dueAt.day;
+    final intervalMillis = _overdueCadence.inMilliseconds;
+    final elapsedSinceDue = minEpochMillis - dueAtEpochMillis;
+    final ticksSinceDue = (elapsedSinceDue + intervalMillis - 1) ~/ intervalMillis;
+    return dueAtEpochMillis + (ticksSinceDue * intervalMillis);
   }
 }
+
+enum ReminderKind { closeDeadline, overdue }
 
 class ReminderPlanEntry {
   const ReminderPlanEntry({
     required this.scheduledAtEpochMillis,
-    required this.isCloseDeadline,
+    required this.kind,
   });
 
   final int scheduledAtEpochMillis;
-  final bool isCloseDeadline;
+  final ReminderKind kind;
+
+  bool get isCloseDeadline => kind == ReminderKind.closeDeadline;
+
+  bool get isOverdue => kind == ReminderKind.overdue;
+}
+
+class UpcomingSummaryPlan {
+  const UpcomingSummaryPlan({
+    required this.scheduledAtEpochMillis,
+    required this.taskIds,
+  });
+
+  final int scheduledAtEpochMillis;
+  final List<String> taskIds;
 }

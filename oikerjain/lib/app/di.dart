@@ -29,6 +29,7 @@ import '../feature/tasks/home/home_state.dart';
 import '../model/task.dart';
 import '../system/notification/local_notification_service.dart';
 import '../system/notification/notification_factory.dart';
+import '../system/notification/push_notification_service.dart';
 import '../system/scheduler/reminder_scheduler_impl.dart';
 
 final clockProvider = Provider<Clock>((ref) => const Clock());
@@ -64,6 +65,14 @@ final localNotificationServiceProvider = Provider<LocalNotificationService>(
   ),
 );
 
+final pushNotificationServiceProvider = Provider<PushNotificationService>(
+  (ref) => PushNotificationService(
+    localNotificationsPlugin: ref.watch(
+      flutterLocalNotificationsPluginProvider,
+    ),
+  ),
+);
+
 final reminderSchedulerProvider = Provider<ReminderScheduler>(
   (ref) => ReminderSchedulerImpl(
     ref.watch(localNotificationServiceProvider),
@@ -79,9 +88,10 @@ final getHistoryTasksUseCaseProvider = Provider<GetHistoryTasksUseCase>(
   (ref) => GetHistoryTasksUseCase(ref.watch(taskRepositoryProvider)),
 );
 
-final cleanupExpiredHistoryUseCaseProvider = Provider<CleanupExpiredHistoryUseCase>(
-  (ref) => CleanupExpiredHistoryUseCase(ref.watch(taskRepositoryProvider)),
-);
+final cleanupExpiredHistoryUseCaseProvider =
+    Provider<CleanupExpiredHistoryUseCase>(
+      (ref) => CleanupExpiredHistoryUseCase(ref.watch(taskRepositoryProvider)),
+    );
 
 final upsertTaskUseCaseProvider = Provider<UpsertTaskUseCase>(
   (ref) => UpsertTaskUseCase(
@@ -157,13 +167,12 @@ final historyControllerProvider =
       ),
     );
 
-final editControllerProvider =
-    legacy.StateNotifierProvider.autoDispose
-        .family<EditController, EditState, Task?>(
-          (ref, initialTask) => EditController(
-            upsertTask: ref.watch(upsertTaskUseCaseProvider),
-            idGenerator: ref.watch(idGeneratorProvider),
-            clock: ref.watch(clockProvider),
-            initialTask: initialTask,
-          ),
-        );
+final editControllerProvider = legacy.StateNotifierProvider.autoDispose
+    .family<EditController, EditState, Task?>(
+      (ref, initialTask) => EditController(
+        upsertTask: ref.watch(upsertTaskUseCaseProvider),
+        idGenerator: ref.watch(idGeneratorProvider),
+        clock: ref.watch(clockProvider),
+        initialTask: initialTask,
+      ),
+    );

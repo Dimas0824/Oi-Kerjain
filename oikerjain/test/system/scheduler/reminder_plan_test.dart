@@ -11,197 +11,176 @@ void main() {
     final now = DateTime(2026, 2, 15, 9);
 
     Task buildTask({
+      required String id,
       required int dueAtEpochMillis,
       int? snoozedUntilEpochMillis,
+      bool isDone = false,
     }) {
       return Task(
-        id: 'task-1',
-        title: 'Task',
+        id: id,
+        title: id,
         createdAtEpochMillis: DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
         dueAtEpochMillis: dueAtEpochMillis,
         repeatRule: RepeatRule.none,
         priority: TaskPriority.medium,
         category: TaskCategory.work,
-        isDone: false,
+        isDone: isDone,
         completedAtEpochMillis: null,
         snoozedUntilEpochMillis: snoozedUntilEpochMillis,
         updatedAtEpochMillis: DateTime(2026, 2, 14, 9).millisecondsSinceEpoch,
       );
     }
 
-    List<DateTime> toTimes(List<ReminderPlanEntry> entries) {
-      return entries
-          .map(
-            (entry) => DateTime.fromMillisecondsSinceEpoch(
-              entry.scheduledAtEpochMillis,
-            ),
-          )
-          .toList();
+    DateTime toTime(ReminderPlanEntry entry) {
+      return DateTime.fromMillisecondsSinceEpoch(entry.scheduledAtEpochMillis);
     }
 
-    test('uses daily cadence when deadline is more than 3 days away', () {
+    test('schedules close deadline reminder 1 hour before dueAt', () {
       final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 24, 9).millisecondsSinceEpoch,
+        id: 'task-close',
+        dueAtEpochMillis: DateTime(2026, 2, 15, 12).millisecondsSinceEpoch,
       );
 
       final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
 
-      expect(times, <DateTime>[
-        DateTime(2026, 2, 16, 9),
-        DateTime(2026, 2, 17, 9),
-        DateTime(2026, 2, 18, 9),
-        DateTime(2026, 2, 24, 9),
-      ]);
+      expect(toTime(plan.first), DateTime(2026, 2, 15, 11));
+      expect(plan.first.kind, ReminderKind.closeDeadline);
+      expect(toTime(plan[1]), DateTime(2026, 2, 15, 12));
+      expect(plan[1].kind, ReminderKind.overdue);
     });
 
-    test('uses 12-hour cadence then escalates to hourly within 1 day', () {
+    test('schedules overdue reminders every 30 minutes after dueAt', () {
       final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 17, 21).millisecondsSinceEpoch,
+        id: 'task-overdue',
+        dueAtEpochMillis: DateTime(2026, 2, 15, 10).millisecondsSinceEpoch,
       );
 
       final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
+      final overdue =
+          plan
+              .where((entry) => entry.kind == ReminderKind.overdue)
+              .take(4)
+              .map(toTime)
+              .toList();
 
-      expect(times.take(3), <DateTime>[
-        DateTime(2026, 2, 15, 21),
-        DateTime(2026, 2, 16, 9),
-        DateTime(2026, 2, 16, 21),
-      ]);
-      expect(times[3], DateTime(2026, 2, 16, 22));
-      expect(times.last, DateTime(2026, 2, 17, 21));
-      expect(times, contains(DateTime(2026, 2, 17, 9)));
-    });
-
-    test('uses hourly cadence when deadline is on the same day', () {
-      final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 15, 13).millisecondsSinceEpoch,
-      );
-
-      final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
-
-      expect(times, <DateTime>[
+      expect(overdue, <DateTime>[
         DateTime(2026, 2, 15, 10),
+        DateTime(2026, 2, 15, 10, 30),
         DateTime(2026, 2, 15, 11),
-        DateTime(2026, 2, 15, 12),
-        DateTime(2026, 2, 15, 13),
+        DateTime(2026, 2, 15, 11, 30),
       ]);
-      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
     });
 
-    test('adds immediate catch-up reminder when deadline is within 1 hour', () {
+    test('adds catch-up close deadline reminder when now is inside 1-hour window', () {
       final task = buildTask(
+        id: 'task-catch-up',
         dueAtEpochMillis: DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch,
       );
 
       final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
 
-      expect(times, <DateTime>[
-        DateTime(2026, 2, 15, 9, 1),
-        DateTime(2026, 2, 15, 9, 30),
-      ]);
-      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+      expect(toTime(plan.first), DateTime(2026, 2, 15, 9, 1));
+      expect(plan.first.kind, ReminderKind.closeDeadline);
+      expect(toTime(plan[1]), DateTime(2026, 2, 15, 9, 30));
+      expect(plan[1].kind, ReminderKind.overdue);
     });
 
-    test('adds immediate catch-up reminder for overdue task', () {
+    test('overdue reminders follow 30-minute cadence and skip past slots', () {
       final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 15, 8, 30).millisecondsSinceEpoch,
+        id: 'task-overdue-offset',
+        dueAtEpochMillis: DateTime(2026, 2, 15, 8, 45).millisecondsSinceEpoch,
       );
 
       final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
+      final firstThree = plan.take(3).map(toTime).toList();
 
-      expect(times, <DateTime>[DateTime(2026, 2, 15, 9, 1)]);
-      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+      expect(firstThree, <DateTime>[
+        DateTime(2026, 2, 15, 9, 15),
+        DateTime(2026, 2, 15, 9, 45),
+        DateTime(2026, 2, 15, 10, 15),
+      ]);
+      expect(plan.take(3).every((entry) => entry.kind == ReminderKind.overdue), isTrue);
     });
 
-    test('respects snooze when overdue task has future snoozed-until', () {
+    test('respects snooze window for overdue reminders', () {
       final task = buildTask(
+        id: 'task-snoozed',
         dueAtEpochMillis: DateTime(2026, 2, 15, 8, 30).millisecondsSinceEpoch,
         snoozedUntilEpochMillis: DateTime(
           2026,
           2,
           15,
           9,
-          15,
+          40,
         ).millisecondsSinceEpoch,
       );
 
       final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
 
-      expect(times, <DateTime>[DateTime(2026, 2, 15, 9, 15)]);
-      expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
+      expect(toTime(plan.first), DateTime(2026, 2, 15, 10, 0));
+      expect(plan.first.kind, ReminderKind.overdue);
     });
 
-    test(
-      'uses hourly cadence when deadline is within 1 day across local-day boundary',
-      () {
-        final task = buildTask(
-          dueAtEpochMillis: DateTime(2026, 2, 16, 0).millisecondsSinceEpoch,
-        );
+    test('buildUpcomingSummary returns one summary for tasks due <= 3 days', () {
+      final tasks = <Task>[
+        buildTask(
+          id: 'due-2d',
+          dueAtEpochMillis: DateTime(2026, 2, 17, 9).millisecondsSinceEpoch,
+        ),
+        buildTask(
+          id: 'due-2h',
+          dueAtEpochMillis: DateTime(2026, 2, 15, 11).millisecondsSinceEpoch,
+        ),
+        buildTask(
+          id: 'close-deadline',
+          dueAtEpochMillis: DateTime(2026, 2, 15, 9, 30).millisecondsSinceEpoch,
+        ),
+        buildTask(
+          id: 'outside-window',
+          dueAtEpochMillis: DateTime(2026, 2, 20, 9).millisecondsSinceEpoch,
+        ),
+        buildTask(
+          id: 'snoozed',
+          dueAtEpochMillis: DateTime(2026, 2, 16, 9).millisecondsSinceEpoch,
+          snoozedUntilEpochMillis: DateTime(
+            2026,
+            2,
+            15,
+            10,
+          ).millisecondsSinceEpoch,
+        ),
+        buildTask(
+          id: 'done',
+          dueAtEpochMillis: DateTime(2026, 2, 16, 9).millisecondsSinceEpoch,
+          isDone: true,
+        ),
+      ];
 
-        final plan = planner.build(task: task, now: now);
-        final times = toTimes(plan);
+      final summary = planner.buildUpcomingSummary(tasks: tasks, now: now);
 
-        expect(times.first, DateTime(2026, 2, 15, 10));
-        expect(times.last, DateTime(2026, 2, 16, 0));
-        expect(times.length, 15);
-        expect(plan.every((entry) => entry.isCloseDeadline), isTrue);
-      },
-    );
-
-    test('limits reminders to 72-hour rolling window', () {
-      final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 25, 9).millisecondsSinceEpoch,
-      );
-
-      final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
-
-      expect(times.last, DateTime(2026, 2, 25, 9));
+      expect(summary, isNotNull);
       expect(
-        times
-            .where((item) => item != DateTime(2026, 2, 25, 9))
-            .every((item) => item.isBefore(DateTime(2026, 2, 18, 9, 0, 1))),
-        isTrue,
+        DateTime.fromMillisecondsSinceEpoch(summary!.scheduledAtEpochMillis),
+        DateTime(2026, 2, 15, 9, 1),
       );
+      expect(summary.taskIds, <String>['due-2h', 'due-2d']);
     });
 
-    test('always keeps exact deadline reminder even beyond rolling window', () {
-      final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 25, 9).millisecondsSinceEpoch,
-      );
+    test('buildUpcomingSummary returns null when no eligible tasks', () {
+      final tasks = <Task>[
+        buildTask(
+          id: 'close',
+          dueAtEpochMillis: DateTime(2026, 2, 15, 9, 10).millisecondsSinceEpoch,
+        ),
+        buildTask(
+          id: 'outside',
+          dueAtEpochMillis: DateTime(2026, 2, 20, 9).millisecondsSinceEpoch,
+        ),
+      ];
 
-      final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
+      final summary = planner.buildUpcomingSummary(tasks: tasks, now: now);
 
-      expect(times, contains(DateTime(2026, 2, 25, 9)));
-      expect(times.first, DateTime(2026, 2, 16, 9));
-      expect(times.last, DateTime(2026, 2, 25, 9));
-    });
-
-    test('applies snooze window and removes collided reminders', () {
-      final task = buildTask(
-        dueAtEpochMillis: DateTime(2026, 2, 15, 15).millisecondsSinceEpoch,
-        snoozedUntilEpochMillis: DateTime(
-          2026,
-          2,
-          15,
-          13,
-        ).millisecondsSinceEpoch,
-      );
-
-      final plan = planner.build(task: task, now: now);
-      final times = toTimes(plan);
-
-      expect(times, <DateTime>[
-        DateTime(2026, 2, 15, 13),
-        DateTime(2026, 2, 15, 14),
-        DateTime(2026, 2, 15, 15),
-      ]);
+      expect(summary, isNull);
     });
   });
 }

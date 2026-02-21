@@ -13,14 +13,11 @@ class UpsertTaskUseCase {
   Future<void> call(Task task) async {
     await _repository.upsertTask(task);
     try {
-      if (task.isDone) {
-        await _scheduler.cancel(task.id);
-        return;
-      }
-      await _scheduler.schedule(task);
+      final tasks = await _repository.getTasks();
+      await _scheduler.rescheduleAll(tasks);
     } catch (error, stackTrace) {
       developer.log(
-        'Failed to schedule notification after upsert for task ${task.id}',
+        'Failed to reschedule notifications after upsert for task ${task.id}',
         name: 'oikerjain.scheduler',
         error: error,
         stackTrace: stackTrace,

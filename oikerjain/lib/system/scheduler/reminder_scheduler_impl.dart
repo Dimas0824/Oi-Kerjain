@@ -33,12 +33,27 @@ class ReminderSchedulerImpl implements ReminderScheduler {
 
   @override
   Future<void> rescheduleAll(List<Task> tasks) async {
+    final now = _clock.now();
+    final activeTasks = <Task>[];
+
     for (final task in tasks) {
       if (task.isDone) {
         await cancel(task.id);
         continue;
       }
-      await schedule(task);
+
+      activeTasks.add(task);
+      final plan = _reminderPlanBuilder.build(task: task, now: now);
+      await _notificationService.scheduleTaskReminders(task, plan);
     }
+
+    final summaryPlan = _reminderPlanBuilder.buildUpcomingSummary(
+      tasks: activeTasks,
+      now: now,
+    );
+    await _notificationService.scheduleUpcomingSummary(
+      tasks: activeTasks,
+      plan: summaryPlan,
+    );
   }
 }

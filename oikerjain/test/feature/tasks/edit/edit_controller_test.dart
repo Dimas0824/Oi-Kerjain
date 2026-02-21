@@ -176,6 +176,35 @@ void main() {
       expect(tasks.single.title, 'New title');
     });
 
+    test('edit mode keeps existing minute in due time text', () {
+      final existingTask = Task(
+        id: 'task-456',
+        title: 'Meeting',
+        description: '',
+        createdAtEpochMillis: DateTime(2026, 2, 10, 9).millisecondsSinceEpoch,
+        dueAtEpochMillis: DateTime(2026, 2, 15, 9, 27).millisecondsSinceEpoch,
+        repeatRule: RepeatRule.none,
+        priority: TaskPriority.medium,
+        category: TaskCategory.work,
+        isDone: false,
+        completedAtEpochMillis: null,
+        updatedAtEpochMillis: 1,
+      );
+      final repository = TaskRepositoryImpl(
+        InMemoryTaskStore(clock: clock, seedTasks: <Task>[existingTask]),
+        clock: clock,
+      );
+      final controller = EditController(
+        upsertTask: UpsertTaskUseCase(repository, FakeReminderScheduler()),
+        idGenerator: IdGenerator(),
+        clock: clock,
+        initialTask: existingTask,
+      );
+      addTearDown(controller.dispose);
+
+      expect(controller.state.dueTimeText, '09:27');
+    });
+
     test('submit succeeds when reminder scheduling fails', () async {
       final repository = TaskRepositoryImpl(
         InMemoryTaskStore(clock: clock, seedTasks: const <Task>[]),
@@ -205,7 +234,7 @@ void main() {
 
 class _ThrowingReminderScheduler extends FakeReminderScheduler {
   @override
-  Future<void> schedule(Task task) async {
+  Future<void> rescheduleAll(List<Task> tasks) async {
     throw Exception('scheduler unavailable');
   }
 }

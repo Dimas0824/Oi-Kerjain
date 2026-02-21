@@ -48,3 +48,14 @@ app.*.map.json
 .vscode
 task.md
 agent.md
+
+# Firebase / secrets
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+*.p8
+*.jks
+*.keystore
+serviceAccount*.json
+.env
+.env.*

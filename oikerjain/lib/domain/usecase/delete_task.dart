@@ -15,5 +15,13 @@ class DeleteTaskUseCase {
       // Persisting task deletion is the primary operation.
       // Notification cancel failures should not block UI updates.
     }
+
+    try {
+      final tasks = await _repository.getTasks();
+      await _scheduler.rescheduleAll(tasks);
+    } catch (_) {
+      // Persisting task deletion is the primary operation.
+      // Notification scheduling failures should not block UI updates.
+    }
   }
 }

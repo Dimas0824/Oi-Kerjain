@@ -16,7 +16,9 @@ class HandleNotificationActionUseCase {
     this._upsertTask,
     this._computeNextOccurrence, {
     Clock? clock,
-  }) : _clock = clock ?? const Clock();
+    Duration customSnoozeDuration = const Duration(minutes: 60),
+  }) : _clock = clock ?? const Clock(),
+       _customSnoozeDuration = customSnoozeDuration;
 
   final TaskRepository _repository;
   final MarkDoneUseCase _markDone;
@@ -24,6 +26,7 @@ class HandleNotificationActionUseCase {
   final UpsertTaskUseCase _upsertTask;
   final ComputeNextOccurrenceUseCase _computeNextOccurrence;
   final Clock _clock;
+  final Duration _customSnoozeDuration;
 
   Future<void> call({
     required String? taskId,
@@ -95,19 +98,47 @@ class HandleNotificationActionUseCase {
   }
 
   Duration? _resolveSnoozeDuration(String? actionId) {
+    final customDuration = _resolveDynamicCustomSnooze(actionId);
+    if (customDuration != null) {
+      return customDuration;
+    }
+
     switch (actionId) {
-      case NotificationConst.actionSnooze1h:
-        return const Duration(hours: 1);
-      case NotificationConst.actionSnooze2h:
-        return const Duration(hours: 2);
-      case NotificationConst.actionSnooze4h:
-        return const Duration(hours: 4);
-      case NotificationConst.actionSnoozeCustom:
-        return const Duration(hours: 1);
-      case NotificationConst.actionSnooze10mLegacy:
+      case NotificationConst.actionSnooze10m:
         return const Duration(minutes: 10);
+      case NotificationConst.actionSnooze30m:
+        return const Duration(minutes: 30);
+      case NotificationConst.actionSnooze60m:
+        return const Duration(hours: 1);
+      case NotificationConst.actionSnoozeCustom:
+        return _customSnoozeDuration;
+      case NotificationConst.actionSnooze1hLegacy:
+        return const Duration(hours: 1);
+      case NotificationConst.actionSnooze2hLegacy:
+        return const Duration(hours: 2);
+      case NotificationConst.actionSnooze4hLegacy:
+        return const Duration(hours: 4);
       default:
         return null;
     }
+  }
+
+  Duration? _resolveDynamicCustomSnooze(String? actionId) {
+    if (actionId == null) {
+      return null;
+    }
+
+    final prefix = '${NotificationConst.actionSnoozeCustom}_';
+    if (!actionId.startsWith(prefix)) {
+      return null;
+    }
+
+    final rawMinutes = actionId.substring(prefix.length);
+    final minutes = int.tryParse(rawMinutes);
+    if (minutes == null || minutes <= 0) {
+      return null;
+    }
+
+    return Duration(minutes: minutes);
   }
 }

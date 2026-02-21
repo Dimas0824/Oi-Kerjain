@@ -93,19 +93,69 @@ class LocalNotificationService {
       await _plugin.zonedSchedule(
         _notificationId(task.id, reminder.scheduledAtEpochMillis),
         _notificationFactory.buildTitle(task),
-        _notificationFactory.buildBody(task),
+        _notificationFactory.buildBody(
+          task,
+          reminderKind: reminder.kind,
+          scheduledAtEpochMillis: reminder.scheduledAtEpochMillis,
+        ),
         when,
-        _buildNotificationDetails(reminder.isCloseDeadline),
+        _buildNotificationDetails(reminderKind: reminder.kind),
         payload: _notificationFactory.buildPayload(
           task,
           scheduledAtEpochMillis: reminder.scheduledAtEpochMillis,
-          isCloseDeadline: reminder.isCloseDeadline,
+          reminderKind: reminder.kind,
         ),
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         androidScheduleMode: _androidScheduleMode,
       );
     }
+  }
+
+  Future<void> scheduleUpcomingSummary({
+    required List<Task> tasks,
+    required UpcomingSummaryPlan? plan,
+  }) async {
+    await _plugin.cancel(NotificationConst.upcomingSummaryNotificationId);
+    if (plan == null || plan.taskIds.isEmpty) {
+      return;
+    }
+
+    final tasksById = <String, Task>{for (final task in tasks) task.id: task};
+    final summaryTasks = <Task>[];
+    for (final taskId in plan.taskIds) {
+      final task = tasksById[taskId];
+      if (task != null && !task.isDone) {
+        summaryTasks.add(task);
+      }
+    }
+    if (summaryTasks.isEmpty) {
+      return;
+    }
+
+    final when = tz.TZDateTime.fromMillisecondsSinceEpoch(
+      tz.local,
+      plan.scheduledAtEpochMillis,
+    );
+    final now = tz.TZDateTime.now(tz.local);
+    if (!when.isAfter(now)) {
+      return;
+    }
+
+    await _plugin.zonedSchedule(
+      NotificationConst.upcomingSummaryNotificationId,
+      _notificationFactory.buildUpcomingSummaryTitle(summaryTasks.length),
+      _notificationFactory.buildUpcomingSummaryBody(summaryTasks),
+      when,
+      _buildNotificationDetails(isSummary: true),
+      payload: _notificationFactory.buildUpcomingSummaryPayload(
+        scheduledAtEpochMillis: plan.scheduledAtEpochMillis,
+        taskIds: summaryTasks.map((task) => task.id).toList(growable: false),
+      ),
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: _androidScheduleMode,
+    );
   }
 
   Future<void> cancelTask(String taskId) async {
@@ -129,10 +179,14 @@ class LocalNotificationService {
     await _actionCallback?.call(taskId: taskId, actionId: response.actionId);
   }
 
-  NotificationDetails _buildNotificationDetails(bool isCloseDeadline) {
-    final androidActions = isCloseDeadline
-        ? _closeDeadlineAndroidActions()
-        : _defaultAndroidActions();
+  NotificationDetails _buildNotificationDetails({
+    ReminderKind? reminderKind,
+    bool isSummary = false,
+  }) {
+    final includeTaskActions = !isSummary && reminderKind != null;
+    final androidActions = includeTaskActions
+        ? _taskReminderAndroidActions()
+        : const <AndroidNotificationAction>[];
 
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -146,47 +200,42 @@ class LocalNotificationService {
         sound: const RawResourceAndroidNotificationSound(
           NotificationConst.androidSoundResourceName,
         ),
-        actions: androidActions,
+        actions: includeTaskActions ? androidActions : null,
       ),
       iOS: DarwinNotificationDetails(
         sound: NotificationConst.iosSoundFileName,
-        categoryIdentifier: isCloseDeadline
-            ? NotificationConst.iosCloseDeadlineCategoryId
-            : NotificationConst.iosDefaultCategoryId,
+        categoryIdentifier: includeTaskActions
+            ? NotificationConst.iosTaskReminderCategoryId
+            : NotificationConst.iosSummaryCategoryId,
       ),
     );
   }
 
-  List<AndroidNotificationAction> _defaultAndroidActions() {
+  List<AndroidNotificationAction> _taskReminderAndroidActions() {
     return const <AndroidNotificationAction>[
       AndroidNotificationAction(
         NotificationConst.actionDone,
         'DONE',
         showsUserInterface: true,
       ),
-    ];
-  }
-
-  List<AndroidNotificationAction> _closeDeadlineAndroidActions() {
-    return const <AndroidNotificationAction>[
       AndroidNotificationAction(
-        NotificationConst.actionSnooze1h,
-        'SNOOZE 1H',
+        NotificationConst.actionSnooze10m,
+        'SNOOZE 10M',
         showsUserInterface: true,
       ),
       AndroidNotificationAction(
-        NotificationConst.actionSnooze2h,
-        'SNOOZE 2H',
+        NotificationConst.actionSnooze30m,
+        'SNOOZE 30M',
         showsUserInterface: true,
       ),
       AndroidNotificationAction(
-        NotificationConst.actionSnooze4h,
-        'SNOOZE 4H',
+        NotificationConst.actionSnooze60m,
+        'SNOOZE 60M',
         showsUserInterface: true,
       ),
       AndroidNotificationAction(
         NotificationConst.actionSnoozeCustom,
-        'SNOOZE +1H',
+        'SNOOZE CUSTOM',
         showsUserInterface: true,
       ),
     ];
@@ -194,8 +243,9 @@ class LocalNotificationService {
 
   List<DarwinNotificationCategory> _darwinNotificationCategories() {
     return <DarwinNotificationCategory>[
+      DarwinNotificationCategory(NotificationConst.iosSummaryCategoryId),
       DarwinNotificationCategory(
-        NotificationConst.iosDefaultCategoryId,
+        NotificationConst.iosTaskReminderCategoryId,
         actions: <DarwinNotificationAction>[
           DarwinNotificationAction.plain(
             NotificationConst.actionDone,
@@ -204,35 +254,30 @@ class LocalNotificationService {
               DarwinNotificationActionOption.foreground,
             },
           ),
-        ],
-      ),
-      DarwinNotificationCategory(
-        NotificationConst.iosCloseDeadlineCategoryId,
-        actions: <DarwinNotificationAction>[
           DarwinNotificationAction.plain(
-            NotificationConst.actionSnooze1h,
-            'SNOOZE 1H',
+            NotificationConst.actionSnooze10m,
+            'SNOOZE 10M',
             options: <DarwinNotificationActionOption>{
               DarwinNotificationActionOption.foreground,
             },
           ),
           DarwinNotificationAction.plain(
-            NotificationConst.actionSnooze2h,
-            'SNOOZE 2H',
+            NotificationConst.actionSnooze30m,
+            'SNOOZE 30M',
             options: <DarwinNotificationActionOption>{
               DarwinNotificationActionOption.foreground,
             },
           ),
           DarwinNotificationAction.plain(
-            NotificationConst.actionSnooze4h,
-            'SNOOZE 4H',
+            NotificationConst.actionSnooze60m,
+            'SNOOZE 60M',
             options: <DarwinNotificationActionOption>{
               DarwinNotificationActionOption.foreground,
             },
           ),
           DarwinNotificationAction.plain(
             NotificationConst.actionSnoozeCustom,
-            'SNOOZE +1H',
+            'SNOOZE CUSTOM',
             options: <DarwinNotificationActionOption>{
               DarwinNotificationActionOption.foreground,
             },

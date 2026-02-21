@@ -125,7 +125,8 @@ class EditController extends legacy.StateNotifier<EditState> {
       description: task.description,
       dueDateText:
           '${dueAt.day.toString().padLeft(2, '0')}-${dueAt.month.toString().padLeft(2, '0')}-${dueAt.year.toString().padLeft(4, '0')}',
-      dueTimeText: '${dueAt.hour.toString().padLeft(2, '0')}:00',
+      dueTimeText:
+          '${dueAt.hour.toString().padLeft(2, '0')}:${dueAt.minute.toString().padLeft(2, '0')}',
       repeatRule: task.repeatRule,
       category: task.category,
       priority: task.priority,

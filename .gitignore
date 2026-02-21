@@ -3,3 +3,11 @@ oikerjain/agent.md
 oikerjain/task.md
 oikerjain/design.jsx
 .vscode/
+
+# Firebase / credentials
+google-services.json
+GoogleService-Info.plist
+*.p8
+*.jks
+*.keystore
+serviceAccount*.json

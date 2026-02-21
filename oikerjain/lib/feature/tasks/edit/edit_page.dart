@@ -38,7 +38,7 @@ class _EditPageState extends ConsumerState<EditPage> {
       text: task?.description ?? '',
     );
     _timeController = TextEditingController(
-      text: dueAt == null ? '' : _formatHour(dueAt.hour),
+      text: dueAt == null ? '' : _formatTime(dueAt.hour, dueAt.minute),
     );
     _dateController = TextEditingController(
       text: dueAt == null ? '' : _formatDate(dueAt),
@@ -54,8 +54,8 @@ class _EditPageState extends ConsumerState<EditPage> {
     super.dispose();
   }
 
-  String _formatHour(int hour) {
-    return '${hour.toString().padLeft(2, '0')}:00';
+  String _formatTime(int hour, int minute) {
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   String _formatDate(DateTime date) {
@@ -64,22 +64,26 @@ class _EditPageState extends ConsumerState<EditPage> {
         '${date.year.toString().padLeft(4, '0')}';
   }
 
-  int? _parseHour(String raw) {
+  ({int hour, int minute})? _parseTime(String raw) {
     final clean = raw.trim();
     if (clean.isEmpty) {
       return null;
     }
 
-    final match = RegExp(r'^(\d{1,2})(?::\d{2})?$').firstMatch(clean);
+    final match = RegExp(r'^(\d{1,2})(?::(\d{2}))?$').firstMatch(clean);
     if (match == null) {
       return null;
     }
 
     final hour = int.tryParse(match.group(1) ?? '');
-    if (hour == null || hour < 0 || hour > 23) {
+    final minute = int.tryParse(match.group(2) ?? '0');
+    if (hour == null || minute == null) {
       return null;
     }
-    return hour;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return (hour: hour, minute: minute);
   }
 
   DateTime? _parseDate(String raw) {
@@ -116,20 +120,28 @@ class _EditPageState extends ConsumerState<EditPage> {
     required String currentValue,
   }) async {
     final now = DateTime.now();
-    final currentHour =
-        _parseHour(currentValue) ?? widget.task?.dueAt.hour ?? now.hour;
+    final taskDueAt = widget.task?.dueAt;
+    final currentTime =
+        _parseTime(currentValue) ??
+        (
+          hour: taskDueAt?.hour ?? now.hour,
+          minute: taskDueAt?.minute ?? now.minute,
+        );
 
-    final pickedHour = await showModalBottomSheet<int>(
+    final pickedTime = await showModalBottomSheet<({int hour, int minute})>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _NeuHourPickerSheet(initialHour: currentHour),
+      builder: (_) => _NeuTimePickerSheet(
+        initialHour: currentTime.hour,
+        initialMinute: currentTime.minute,
+      ),
     );
-    if (pickedHour == null) {
+    if (pickedTime == null) {
       return;
     }
 
-    final formatted = _formatHour(pickedHour);
+    final formatted = _formatTime(pickedTime.hour, pickedTime.minute);
     _timeController.text = formatted;
     controller.setDueTimeText(formatted);
   }
@@ -473,26 +485,46 @@ class _EditPageState extends ConsumerState<EditPage> {
   }
 }
 
-class _NeuHourPickerSheet extends StatefulWidget {
-  const _NeuHourPickerSheet({required this.initialHour});
+class _NeuTimePickerSheet extends StatefulWidget {
+  const _NeuTimePickerSheet({
+    required this.initialHour,
+    required this.initialMinute,
+  });
 
   final int initialHour;
+  final int initialMinute;
 
   @override
-  State<_NeuHourPickerSheet> createState() => _NeuHourPickerSheetState();
+  State<_NeuTimePickerSheet> createState() => _NeuTimePickerSheetState();
 }
 
-class _NeuHourPickerSheetState extends State<_NeuHourPickerSheet> {
+class _NeuTimePickerSheetState extends State<_NeuTimePickerSheet> {
   late int _selectedHour;
+  late int _selectedMinute;
+  late final FixedExtentScrollController _hourController;
+  late final FixedExtentScrollController _minuteController;
 
   @override
   void initState() {
     super.initState();
-    _selectedHour = widget.initialHour;
+    _selectedHour = widget.initialHour.clamp(0, 23).toInt();
+    _selectedMinute = widget.initialMinute.clamp(0, 59).toInt();
+    _hourController = FixedExtentScrollController(initialItem: _selectedHour);
+    _minuteController = FixedExtentScrollController(
+      initialItem: _selectedMinute,
+    );
+  }
+
+  @override
+  void dispose() {
+    _hourController.dispose();
+    _minuteController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     final viewPadding = MediaQuery.viewPaddingOf(context).bottom;
 
     return SafeArea(
@@ -509,30 +541,107 @@ class _NeuHourPickerSheetState extends State<_NeuHourPickerSheet> {
               const _FieldLabel('Waktu tenggat'),
               const SizedBox(height: 12),
               SizedBox(
-                height: 248,
-                child: GridView.builder(
-                  itemCount: 24,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 2.2,
-                  ),
-                  itemBuilder: (_, index) {
-                    final hour = index;
-                    return NeuButton(
-                      key: Key('hour-option-$hour'),
-                      active: _selectedHour == hour,
-                      radius: 10,
-                      onTap: () {
-                        setState(() {
-                          _selectedHour = hour;
-                        });
-                      },
-                      child: Text('${hour.toString().padLeft(2, '0')}:00'),
-                    );
-                  },
+                height: 220,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        children: <Widget>[
+                          Text('Jam', style: UITypography.caption),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: NeuSurface(
+                              pressed: true,
+                              radius: 18,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 8,
+                              ),
+                              child: ListWheelScrollView.useDelegate(
+                                key: const Key('deadline-hour-wheel'),
+                                controller: _hourController,
+                                itemExtent: 36,
+                                diameterRatio: 1.8,
+                                squeeze: 1.12,
+                                physics: const FixedExtentScrollPhysics(),
+                                onSelectedItemChanged: (hour) {
+                                  setState(() {
+                                    _selectedHour = hour;
+                                  });
+                                },
+                                childDelegate: ListWheelChildBuilderDelegate(
+                                  childCount: 24,
+                                  builder: (_, index) {
+                                    final value =
+                                        index.toString().padLeft(2, '0');
+                                    return Center(
+                                      child: Text(
+                                        value,
+                                        style: index == _selectedHour
+                                            ? UITypography.input
+                                            : textTheme.bodyMedium?.copyWith(
+                                                color: UIPalette.textMuted,
+                                              ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        children: <Widget>[
+                          Text('Menit', style: UITypography.caption),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: NeuSurface(
+                              pressed: true,
+                              radius: 18,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 8,
+                              ),
+                              child: ListWheelScrollView.useDelegate(
+                                key: const Key('deadline-minute-wheel'),
+                                controller: _minuteController,
+                                itemExtent: 36,
+                                diameterRatio: 1.8,
+                                squeeze: 1.12,
+                                physics: const FixedExtentScrollPhysics(),
+                                onSelectedItemChanged: (minute) {
+                                  setState(() {
+                                    _selectedMinute = minute;
+                                  });
+                                },
+                                childDelegate: ListWheelChildBuilderDelegate(
+                                  childCount: 60,
+                                  builder: (_, index) {
+                                    final value =
+                                        index.toString().padLeft(2, '0');
+                                    return Center(
+                                      child: Text(
+                                        value,
+                                        style: index == _selectedMinute
+                                            ? UITypography.input
+                                            : textTheme.bodyMedium?.copyWith(
+                                                color: UIPalette.textMuted,
+                                              ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -552,7 +661,9 @@ class _NeuHourPickerSheetState extends State<_NeuHourPickerSheet> {
                       key: const Key('time-picker-confirm-button'),
                       radius: 12,
                       active: true,
-                      onTap: () => Navigator.of(context).pop(_selectedHour),
+                      onTap: () => Navigator.of(context).pop(
+                        (hour: _selectedHour, minute: _selectedMinute),
+                      ),
                       child: const Text('Pilih'),
                     ),
                   ),
